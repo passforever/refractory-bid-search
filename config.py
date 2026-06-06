@@ -1,10 +1,19 @@
 """
 耐火材料招标采购信息搜索工具 - 配置文件
+支持关键词管理、API数据源配置
 """
+
+import json
+import os
+import sys
+
+def _get_app_dir():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
 
 # ==================== 搜索关键词配置 ====================
 
-# 主关键词：招标/采购类
 BID_KEYWORDS = [
     "耐火材料 招标",
     "耐火材料 采购",
@@ -13,7 +22,6 @@ BID_KEYWORDS = [
     "耐火材料 竞争性谈判",
 ]
 
-# 窑炉类关键词
 FURNACE_KEYWORDS = [
     "高炉 维修 招标",
     "高炉 耐火材料",
@@ -27,7 +35,6 @@ FURNACE_KEYWORDS = [
     "锅炉 耐火浇注料",
 ]
 
-# 材料类关键词
 MATERIAL_KEYWORDS = [
     "高铝砖 招标",
     "高铝砖 采购",
@@ -48,7 +55,6 @@ MATERIAL_KEYWORDS = [
     "耐火可塑料 采购",
 ]
 
-# 所有关键词合集
 ALL_KEYWORDS = BID_KEYWORDS + FURNACE_KEYWORDS + MATERIAL_KEYWORDS
 
 # ==================== 搜索源配置 ====================
@@ -58,7 +64,7 @@ SEARCH_SOURCES = {
         "name": "百度搜索",
         "enabled": True,
         "base_url": "https://www.baidu.com/s",
-        "max_pages": 3,  # 每个关键词搜索的最大页数
+        "max_pages": 3,
     },
     "bing": {
         "name": "必应搜索",
@@ -80,12 +86,62 @@ SEARCH_SOURCES = {
     },
 }
 
+# ==================== 固定网站 API 数据源 ====================
+# 可配置第三方招标网站 API，自动拉取结构化数据
+
+API_SOURCES = {
+    # 示例：中国政府采购网公开接口
+    "ccgp": {
+        "name": "中国政府采购网",
+        "enabled": False,
+        "api_url": "https://search.ccgp.gov.cn/bxsearch",
+        "api_type": "html",  # html / json / rss
+        "params": {
+            "search_type": "1",
+            "bidSort": "0",
+            "buyerName": "",
+            "projectId": "",
+            "pinMu": "0",
+            "bidType": "0",
+            "dbselect": "bidx",
+            "kw": "{keyword}",
+            "start_time": "{date_30d_ago}",
+            "end_time": "{today}",
+            "timeType": "6",
+        },
+        "encoding": "utf-8",
+        "result_selector": {
+            "container": "div.vT-s",
+            "title": "a",
+            "url": "a[href]",
+            "snippet": "p",
+            "date": "span",
+        },
+    },
+    # 示例：招标投标公共服务平台
+    "cebpubservice": {
+        "name": "招标投标公共服务平台",
+        "enabled": False,
+        "api_url": "https://www.cebpubservice.com/search",
+        "api_type": "html",
+        "params": {
+            "keyword": "{keyword}",
+        },
+        "encoding": "utf-8",
+        "result_selector": {
+            "container": "div.search-result-item",
+            "title": "h3 a",
+            "url": "h3 a[href]",
+            "snippet": "p.result-desc",
+            "date": "span.date",
+        },
+    },
+}
+
 # ==================== 过滤配置 ====================
 
-# 结果日期过滤：只保留最近 N 天内的结果
 MAX_DAYS_OLD = 30
 
-# 排除的关键词（标题/摘要中包含这些词则过滤掉）
 EXCLUDE_KEYWORDS = [
     "求职", "招聘", "人才", "简历",
     "论文", "文献", "专利",
@@ -93,7 +149,6 @@ EXCLUDE_KEYWORDS = [
     "培训", "课程", "学习",
 ]
 
-# 必须包含至少一个核心词（避免搜索结果偏离主题）
 MUST_CONTAIN_ANY = [
     "耐火", "招标", "采购", "竞标", "中标", "比价",
     "高铝砖", "粘土砖", "轻质砖", "硅砖",
@@ -103,17 +158,11 @@ MUST_CONTAIN_ANY = [
 
 # ==================== 请求配置 ====================
 
-# 请求间隔（秒），避免被反爬
 REQUEST_DELAY_MIN = 2
 REQUEST_DELAY_MAX = 5
-
-# 请求超时（秒）
 REQUEST_TIMEOUT = 15
-
-# 最大重试次数
 MAX_RETRIES = 2
 
-# 请求头
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -124,11 +173,83 @@ HEADERS = {
 
 # ==================== 输出配置 ====================
 
-# 报告输出目录
 REPORT_DIR = "reports"
-
-# 报告文件名格式
 REPORT_FILENAME_FORMAT = "耐火材料招标_{date}.html"
-
-# 日期格式
 DATE_FORMAT = "%Y-%m-%d"
+
+
+# ==================== 配置管理器 ====================
+
+class ConfigManager:
+    """关键词与 API 配置管理器"""
+
+    CUSTOM_CONFIG_FILE = "custom_config.json"
+
+    @classmethod
+    def get_config_path(cls):
+        return os.path.join(_get_app_dir(), cls.CUSTOM_CONFIG_FILE)
+
+    @classmethod
+    def load_custom(cls):
+        path = cls.get_config_path()
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return {}
+
+    @classmethod
+    def save_custom(cls, data: dict):
+        path = cls.get_config_path()
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+    @classmethod
+    def get_keywords(cls):
+        """获取合并后的关键词列表"""
+        custom = cls.load_custom()
+        if "keywords" in custom:
+            return custom["keywords"]
+        return ALL_KEYWORDS
+
+    @classmethod
+    def set_keywords(cls, keywords: list):
+        custom = cls.load_custom()
+        custom["keywords"] = keywords
+        cls.save_custom(custom)
+
+    @classmethod
+    def get_api_sources(cls):
+        """获取合并后的 API 源"""
+        custom = cls.load_custom()
+        sources = dict(API_SOURCES)
+        if "api_sources" in custom:
+            sources.update(custom["api_sources"])
+        return sources
+
+    @classmethod
+    def add_api_source(cls, key: str, config: dict):
+        custom = cls.load_custom()
+        if "api_sources" not in custom:
+            custom["api_sources"] = {}
+        custom["api_sources"][key] = config
+        cls.save_custom(custom)
+
+    @classmethod
+    def remove_api_source(cls, key: str):
+        custom = cls.load_custom()
+        if "api_sources" in custom and key in custom["api_sources"]:
+            del custom["api_sources"][key]
+            cls.save_custom(custom)
+
+    @classmethod
+    def toggle_api_source(cls, key: str, enabled: bool):
+        custom = cls.load_custom()
+        if "api_sources" not in custom:
+            custom["api_sources"] = {}
+        if key not in custom["api_sources"]:
+            custom["api_sources"][key] = dict(API_SOURCES.get(key, {}))
+        custom["api_sources"][key]["enabled"] = enabled
+        cls.save_custom(custom)

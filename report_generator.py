@@ -1,6 +1,6 @@
 """
 耐火材料招标采购信息搜索工具 - HTML报告生成器
-生成精美的可视化报告，支持分类查看、时间筛选
+苹果官网视觉风格：纯净白色、大量留白、优雅排版、卡片式设计
 """
 
 import os
@@ -13,15 +13,12 @@ from search_engine import SearchResult, SearchReport
 
 
 def _get_app_dir():
-    """获取应用程序目录（兼容 PyInstaller 打包）"""
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))
 
 
 def generate_html_report(report: SearchReport) -> str:
-    """生成HTML报告"""
-
     today = datetime.now().strftime(config.DATE_FORMAT)
     output_dir = os.path.join(_get_app_dir(), config.REPORT_DIR)
     os.makedirs(output_dir, exist_ok=True)
@@ -29,7 +26,6 @@ def generate_html_report(report: SearchReport) -> str:
     filename = config.REPORT_FILENAME_FORMAT.format(date=today)
     filepath = os.path.join(output_dir, filename)
 
-    # 分类结果
     bid_results = [r for r in report.results if r.category == "招标采购"]
     material_results = [r for r in report.results if r.category == "材料采购"]
     furnace_results = [r for r in report.results if r.category == "窑炉维修"]
@@ -41,438 +37,523 @@ def generate_html_report(report: SearchReport) -> str:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>耐火材料招标采购信息日报 - {today}</title>
     <style>
-        * {{
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {{
+            --bg: #fbfbfd;
+            --card-bg: #ffffff;
+            --text-primary: #1d1d1f;
+            --text-secondary: #6e6e73;
+            --text-tertiary: #86868b;
+            --border: #d2d2d7;
+            --border-light: #e8e8ed;
+            --accent: #0071e3;
+            --accent-hover: #0077ed;
+            --green: #34c759;
+            --orange: #ff9500;
+            --pink: #ff2d55;
+            --purple: #af52de;
+            --radius: 18px;
+            --radius-sm: 12px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 14px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.04);
+            --shadow-lg: 0 8px 30px rgba(0,0,0,0.08), 0 4px 10px rgba(0,0,0,0.04);
+            --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
         }}
+
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
 
         body {{
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-            background: linear-gradient(135deg, #0c0c1d 0%, #1a1a2e 50%, #16213e 100%);
-            color: #e0e0e0;
-            min-height: 100vh;
-            line-height: 1.6;
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text-primary);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
         }}
 
-        .container {{
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }}
-
-        /* ===== Header ===== */
-        .header {{
+        /* ===== Hero Section ===== */
+        .hero {{
             text-align: center;
-            padding: 40px 20px;
-            margin-bottom: 30px;
-            background: rgba(255,255,255,0.03);
-            border-radius: 16px;
-            border: 1px solid rgba(255,255,255,0.06);
-            backdrop-filter: blur(20px);
+            padding: 80px 24px 60px;
+            background: linear-gradient(180deg, #f5f5f7 0%, var(--bg) 100%);
         }}
 
-        .header h1 {{
-            font-size: 2rem;
-            background: linear-gradient(135deg, #f97316, #ef4444, #ec4899);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 8px;
-            font-weight: 800;
-            letter-spacing: 2px;
-        }}
-
-        .header .subtitle {{
-            color: #94a3b8;
-            font-size: 0.95rem;
-        }}
-
-        .header .date-badge {{
-            display: inline-block;
-            margin-top: 12px;
-            padding: 6px 20px;
-            background: linear-gradient(135deg, rgba(249,115,22,0.2), rgba(239,68,68,0.2));
-            border: 1px solid rgba(249,115,22,0.3);
-            border-radius: 20px;
-            color: #fb923c;
+        .hero-eyebrow {{
+            font-size: 0.8rem;
             font-weight: 600;
-            font-size: 0.9rem;
-        }}
-
-        /* ===== Stats Cards ===== */
-        .stats-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin-bottom: 30px;
-        }}
-
-        .stat-card {{
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 14px;
-            padding: 24px 20px;
-            text-align: center;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }}
-
-        .stat-card:hover {{
-            transform: translateY(-4px);
-            box-shadow: 0 12px 40px rgba(0,0,0,0.3);
-        }}
-
-        .stat-card .number {{
-            font-size: 2.4rem;
-            font-weight: 800;
-            margin-bottom: 4px;
-        }}
-
-        .stat-card .label {{
-            color: #94a3b8;
-            font-size: 0.85rem;
+            letter-spacing: 0.08em;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            color: var(--text-tertiary);
+            margin-bottom: 12px;
         }}
 
-        .stat-card.total .number {{ background: linear-gradient(135deg, #60a5fa, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }}
-        .stat-card.bid .number {{ background: linear-gradient(135deg, #f97316, #ea580c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }}
-        .stat-card.material .number {{ background: linear-gradient(135deg, #10b981, #059669); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }}
-        .stat-card.furnace .number {{ background: linear-gradient(135deg, #ec4899, #db2777); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }}
+        .hero h1 {{
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }}
 
-        .stat-card.total {{ border-color: rgba(96,165,250,0.2); }}
-        .stat-card.bid {{ border-color: rgba(249,115,22,0.2); }}
-        .stat-card.material {{ border-color: rgba(16,185,129,0.2); }}
-        .stat-card.furnace {{ border-color: rgba(236,72,153,0.2); }}
+        .hero-date {{
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }}
 
-        /* ===== Tab Navigation ===== */
-        .tab-nav {{
+        /* ===== Stats Bar ===== */
+        .stats-bar {{
             display: flex;
-            gap: 8px;
-            margin-bottom: 20px;
+            justify-content: center;
+            gap: 48px;
+            padding: 40px 24px;
             flex-wrap: wrap;
         }}
 
+        .stat-item {{
+            text-align: center;
+        }}
+
+        .stat-number {{
+            font-size: 2.8rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+        }}
+
+        .stat-number.blue {{ color: var(--accent); }}
+        .stat-number.orange {{ color: var(--orange); }}
+        .stat-number.green {{ color: var(--green); }}
+        .stat-number.pink {{ color: var(--pink); }}
+
+        .stat-label {{
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+            letter-spacing: 0.02em;
+        }}
+
+        /* ===== Tab Navigation ===== */
+        .tab-container {{
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }}
+
+        .tab-nav {{
+            display: flex;
+            gap: 6px;
+            border-bottom: 1px solid var(--border-light);
+            margin-bottom: 32px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }}
+
         .tab-btn {{
-            padding: 10px 24px;
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 10px;
-            background: rgba(255,255,255,0.03);
-            color: #94a3b8;
+            padding: 12px 20px;
+            border: none;
+            background: none;
+            color: var(--text-secondary);
             cursor: pointer;
-            font-size: 0.9rem;
-            font-weight: 600;
-            transition: all 0.3s ease;
+            font-size: 0.92rem;
+            font-weight: 500;
+            font-family: var(--font);
+            border-bottom: 2px solid transparent;
+            transition: all 0.25s ease;
+            white-space: nowrap;
         }}
 
         .tab-btn:hover {{
-            background: rgba(255,255,255,0.08);
-            color: #e2e8f0;
+            color: var(--text-primary);
         }}
 
         .tab-btn.active {{
-            background: linear-gradient(135deg, rgba(249,115,22,0.25), rgba(239,68,68,0.2));
-            border-color: rgba(249,115,22,0.4);
-            color: #fb923c;
+            color: var(--accent);
+            border-bottom-color: var(--accent);
         }}
 
         .tab-btn .count {{
             display: inline-block;
-            margin-left: 6px;
-            background: rgba(255,255,255,0.1);
-            padding: 1px 8px;
-            border-radius: 8px;
-            font-size: 0.75rem;
+            margin-left: 4px;
+            font-size: 0.78rem;
+            color: var(--text-tertiary);
+            font-weight: 400;
         }}
 
         .tab-btn.active .count {{
-            background: rgba(249,115,22,0.3);
+            color: var(--accent);
+            opacity: 0.7;
         }}
 
-        /* ===== Result Cards ===== */
+        /* ===== Results Section ===== */
         .results-section {{
             display: none;
+            animation: fadeIn 0.4s ease;
         }}
 
         .results-section.active {{
             display: block;
         }}
 
-        .result-card {{
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.07);
-            border-radius: 14px;
-            padding: 20px 24px;
-            margin-bottom: 14px;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
+        @keyframes fadeIn {{
+            from {{ opacity: 0; transform: translateY(8px); }}
+            to {{ opacity: 1; transform: translateY(0); }}
         }}
 
+        /* ===== Result Card (Apple Style) ===== */
+        .result-card {{
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 28px 32px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-light);
+            transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            position: relative;
+        }}
+
+        .result-card:hover {{
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-2px);
+            border-color: var(--border);
+        }}
+
+        /* Category indicator line */
         .result-card::before {{
             content: '';
             position: absolute;
             left: 0;
-            top: 0;
-            bottom: 0;
-            width: 4px;
-            border-radius: 4px 0 0 4px;
+            top: 20px;
+            bottom: 20px;
+            width: 3px;
+            border-radius: 0 3px 3px 0;
         }}
 
-        .result-card.bid-card::before {{ background: linear-gradient(180deg, #f97316, #ea580c); }}
-        .result-card.material-card::before {{ background: linear-gradient(180deg, #10b981, #059669); }}
-        .result-card.furnace-card::before {{ background: linear-gradient(180deg, #ec4899, #db2777); }}
+        .result-card.cat-bid::before {{ background: var(--accent); }}
+        .result-card.cat-material::before {{ background: var(--green); }}
+        .result-card.cat-furnace::before {{ background: var(--pink); }}
 
-        .result-card:hover {{
-            background: rgba(255,255,255,0.07);
-            border-color: rgba(255,255,255,0.12);
-            transform: translateX(4px);
+        /* Card Title */
+        .card-title {{
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            line-height: 1.35;
+            margin-bottom: 10px;
         }}
 
-        .result-card .card-header {{
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 8px;
-            gap: 12px;
-        }}
-
-        .result-card .title {{
-            font-size: 1.05rem;
-            font-weight: 700;
-            color: #f1f5f9;
-            flex: 1;
-        }}
-
-        .result-card .title a {{
-            color: inherit;
+        .card-title a {{
+            color: var(--text-primary);
             text-decoration: none;
             transition: color 0.2s;
         }}
 
-        .result-card .title a:hover {{
-            color: #fb923c;
+        .card-title a:hover {{
+            color: var(--accent);
         }}
 
-        .result-card .score-badge {{
-            flex-shrink: 0;
-            padding: 3px 10px;
-            border-radius: 8px;
-            font-size: 0.75rem;
-            font-weight: 700;
-        }}
-
-        .score-high {{ background: rgba(16,185,129,0.2); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }}
-        .score-mid {{ background: rgba(249,115,22,0.2); color: #fb923c; border: 1px solid rgba(249,115,22,0.3); }}
-        .score-low {{ background: rgba(148,163,184,0.15); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2); }}
-
-        .result-card .snippet {{
-            color: #94a3b8;
-            font-size: 0.88rem;
-            margin-bottom: 10px;
-            line-height: 1.5;
+        /* Card Snippet */
+        .card-snippet {{
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.65;
+            margin-bottom: 16px;
             display: -webkit-box;
-            -webkit-line-clamp: 3;
+            -webkit-line-clamp: 4;
             -webkit-box-orient: vertical;
             overflow: hidden;
         }}
 
-        .result-card .meta {{
-            display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
-            font-size: 0.78rem;
-            color: #64748b;
+        /* Extra Info Grid */
+        .extra-info {{
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 8px 20px;
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            background: #f5f5f7;
+            border-radius: var(--radius-sm);
         }}
 
-        .result-card .meta span {{
+        .extra-item {{
             display: flex;
             align-items: center;
+            gap: 6px;
+            font-size: 0.82rem;
+        }}
+
+        .extra-item .label {{
+            color: var(--text-tertiary);
+            font-weight: 500;
+            white-space: nowrap;
+        }}
+
+        .extra-item .value {{
+            color: var(--text-primary);
+            font-weight: 500;
+        }}
+
+        .extra-item .value.budget {{
+            color: var(--orange);
+        }}
+
+        .extra-item .value.deadline {{
+            color: var(--pink);
+        }}
+
+        /* Meta Tags */
+        .card-meta {{
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }}
+
+        .tag {{
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }}
+
+        .tag-bid {{ background: rgba(0,113,227,0.08); color: var(--accent); }}
+        .tag-material {{ background: rgba(52,199,89,0.08); color: var(--green); }}
+        .tag-furnace {{ background: rgba(255,45,85,0.08); color: var(--pink); }}
+
+        .tag-score {{
+            background: #f5f5f7;
+            color: var(--text-secondary);
+        }}
+
+        .tag-score.high {{ background: rgba(52,199,89,0.1); color: var(--green); }}
+        .tag-score.mid {{ background: rgba(255,149,0,0.1); color: var(--orange); }}
+
+        .tag-source {{
+            background: #f5f5f7;
+            color: var(--text-tertiary);
+        }}
+
+        .tag-date {{
+            background: none;
+            color: var(--text-tertiary);
+            padding: 4px 0;
+        }}
+
+        .tag-keyword {{
+            background: rgba(175,82,222,0.08);
+            color: var(--purple);
+        }}
+
+        /* Visit Button */
+        .visit-btn {{
+            display: inline-flex;
+            align-items: center;
             gap: 4px;
+            padding: 6px 16px;
+            background: var(--accent);
+            color: #fff;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s;
+            margin-left: auto;
         }}
 
-        .result-card .meta .category-tag {{
-            padding: 2px 8px;
-            border-radius: 6px;
-            font-weight: 600;
+        .visit-btn:hover {{
+            background: var(--accent-hover);
+            transform: scale(1.02);
         }}
 
-        .tag-bid {{ background: rgba(249,115,22,0.15); color: #fb923c; }}
-        .tag-material {{ background: rgba(16,185,129,0.15); color: #34d399; }}
-        .tag-furnace {{ background: rgba(236,72,153,0.15); color: #f472b6; }}
+        .visit-btn svg {{
+            width: 12px;
+            height: 12px;
+        }}
 
         /* ===== Empty State ===== */
         .empty-state {{
             text-align: center;
-            padding: 60px 20px;
-            color: #475569;
+            padding: 80px 20px;
+            color: var(--text-tertiary);
         }}
 
-        .empty-state .icon {{
+        .empty-icon {{
             font-size: 3rem;
-            margin-bottom: 12px;
+            margin-bottom: 16px;
+            opacity: 0.4;
         }}
 
-        /* ===== Errors ===== */
-        .errors-section {{
-            margin-top: 30px;
-            padding: 20px;
-            background: rgba(239,68,68,0.08);
-            border: 1px solid rgba(239,68,68,0.2);
-            border-radius: 14px;
-        }}
-
-        .errors-section h3 {{
-            color: #f87171;
-            margin-bottom: 10px;
-            font-size: 0.95rem;
-        }}
-
-        .errors-section ul {{
-            list-style: none;
-            color: #fca5a5;
-            font-size: 0.82rem;
-        }}
-
-        .errors-section li {{
-            padding: 4px 0;
+        .empty-text {{
+            font-size: 1.1rem;
+            font-weight: 500;
         }}
 
         /* ===== Footer ===== */
         .footer {{
             text-align: center;
-            padding: 30px;
-            color: #334155;
-            font-size: 0.8rem;
-            margin-top: 40px;
-            border-top: 1px solid rgba(255,255,255,0.05);
+            padding: 40px 24px 60px;
+            border-top: 1px solid var(--border-light);
+            margin-top: 60px;
+        }}
+
+        .footer p {{
+            color: var(--text-tertiary);
+            font-size: 0.82rem;
+            line-height: 1.7;
+        }}
+
+        /* ===== Error Section ===== */
+        .errors-section {{
+            max-width: 980px;
+            margin: 20px auto;
+            padding: 20px 24px;
+            background: #fff;
+            border-radius: var(--radius);
+            border: 1px solid rgba(255,45,85,0.2);
+        }}
+
+        .errors-section h3 {{
+            color: var(--pink);
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }}
+
+        .errors-section li {{
+            color: var(--text-secondary);
+            font-size: 0.82rem;
+            padding: 2px 0;
+        }}
+
+        /* ===== Search Config Info ===== */
+        .config-info {{
+            max-width: 980px;
+            margin: 0 auto 30px;
+            padding: 16px 24px;
+            background: #f5f5f7;
+            border-radius: var(--radius-sm);
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+        }}
+
+        .config-info span {{
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }}
 
         /* ===== Responsive ===== */
         @media (max-width: 768px) {{
-            .container {{ padding: 12px; }}
-            .header h1 {{ font-size: 1.5rem; }}
-            .stats-grid {{ grid-template-columns: repeat(2, 1fr); gap: 10px; }}
-            .stat-card {{ padding: 16px 12px; }}
-            .stat-card .number {{ font-size: 1.8rem; }}
-            .result-card {{ padding: 14px 16px; }}
-            .tab-btn {{ padding: 8px 16px; font-size: 0.82rem; }}
+            .hero {{ padding: 50px 16px 40px; }}
+            .hero h1 {{ font-size: 1.8rem; }}
+            .stats-bar {{ gap: 24px; padding: 24px 16px; }}
+            .stat-number {{ font-size: 2rem; }}
+            .result-card {{ padding: 20px 18px; border-radius: 14px; }}
+            .card-title {{ font-size: 1rem; }}
+            .extra-info {{ grid-template-columns: 1fr 1fr; padding: 10px 12px; }}
+            .tab-btn {{ padding: 10px 14px; font-size: 0.85rem; }}
+            .config-info {{ flex-direction: column; gap: 8px; }}
         }}
 
-        /* ===== Scrollbar ===== */
-        ::-webkit-scrollbar {{ width: 8px; }}
-        ::-webkit-scrollbar-track {{ background: rgba(0,0,0,0.2); }}
-        ::-webkit-scrollbar-thumb {{ background: rgba(255,255,255,0.1); border-radius: 4px; }}
-        ::-webkit-scrollbar-thumb:hover {{ background: rgba(255,255,255,0.2); }}
-
-        /* ===== Highlight keyword ===== */
-        .highlight {{
-            background: rgba(249,115,22,0.3);
-            color: #fb923c;
-            padding: 0 2px;
-            border-radius: 3px;
+        @media (max-width: 480px) {{
+            .extra-info {{ grid-template-columns: 1fr; }}
         }}
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <h1>🔥 耐火材料招标采购信息日报</h1>
-            <p class="subtitle">自动全网搜索 | 多源聚合 | 智能分类</p>
-            <div class="date-badge">📅 {today} | 搜索时间: {report.search_time}</div>
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-eyebrow">Refractory Bid Search</div>
+        <h1>耐火材料招标采购信息日报</h1>
+        <p class="hero-date">{today} &nbsp;&middot;&nbsp; 搜索时间 {report.search_time}</p>
+    </section>
+
+    <!-- Stats -->
+    <div class="stats-bar">
+        <div class="stat-item">
+            <div class="stat-number blue">{report.total_results}</div>
+            <div class="stat-label">总结果</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number orange">{len(bid_results)}</div>
+            <div class="stat-label">招标采购</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number green">{len(material_results)}</div>
+            <div class="stat-label">材料采购</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number pink">{len(furnace_results)}</div>
+            <div class="stat-label">窑炉维修</div>
+        </div>
+    </div>
+
+    <!-- Tabs & Results -->
+    <div class="tab-container">
+        <div class="config-info">
+            <span>🔑 关键词: {report.total_keywords} 个</span>
+            <span>📡 搜索源: {len(report.source_stats)} 个</span>
+            <span>📊 来源: {' &middot; '.join(f'{k} {v}条' for k,v in report.source_stats.items())}</span>
         </div>
 
-        <!-- Stats -->
-        <div class="stats-grid">
-            <div class="stat-card total">
-                <div class="number">{report.total_results}</div>
-                <div class="label">总结果数</div>
-            </div>
-            <div class="stat-card bid">
-                <div class="number">{len(bid_results)}</div>
-                <div class="label">招标采购</div>
-            </div>
-            <div class="stat-card material">
-                <div class="number">{len(material_results)}</div>
-                <div class="label">材料采购</div>
-            </div>
-            <div class="stat-card furnace">
-                <div class="number">{len(furnace_results)}</div>
-                <div class="label">窑炉维修</div>
-            </div>
-        </div>
-
-        <!-- Tab Navigation -->
         <div class="tab-nav">
-            <button class="tab-btn active" onclick="switchTab('all')">
-                全部 <span class="count">{report.total_results}</span>
-            </button>
-            <button class="tab-btn" onclick="switchTab('bid')">
-                🏛️ 招标采购 <span class="count">{len(bid_results)}</span>
-            </button>
-            <button class="tab-btn" onclick="switchTab('material')">
-                🧱 材料采购 <span class="count">{len(material_results)}</span>
-            </button>
-            <button class="tab-btn" onclick="switchTab('furnace')">
-                🏭 窑炉维修 <span class="count">{len(furnace_results)}</span>
-            </button>
+            <button class="tab-btn active" onclick="switchTab('all')">全部 <span class="count">{report.total_results}</span></button>
+            <button class="tab-btn" onclick="switchTab('bid')">招标采购 <span class="count">{len(bid_results)}</span></button>
+            <button class="tab-btn" onclick="switchTab('material')">材料采购 <span class="count">{len(material_results)}</span></button>
+            <button class="tab-btn" onclick="switchTab('furnace')">窑炉维修 <span class="count">{len(furnace_results)}</span></button>
         </div>
 
-        <!-- All Results -->
         <div class="results-section active" id="tab-all">
             {_render_results(report.results, "all")}
         </div>
-
-        <!-- Bid Results -->
         <div class="results-section" id="tab-bid">
             {_render_results(bid_results, "bid")}
         </div>
-
-        <!-- Material Results -->
         <div class="results-section" id="tab-material">
             {_render_results(material_results, "material")}
         </div>
-
-        <!-- Furnace Results -->
         <div class="results-section" id="tab-furnace">
             {_render_results(furnace_results, "furnace")}
         </div>
 
-        <!-- Errors -->
         {"".join(_render_errors(report.errors)) if report.errors else ""}
+    </div>
 
-        <!-- Footer -->
-        <div class="footer">
-            <p>耐火材料招标采购信息搜索工具 | 每日自动搜索 | 数据仅供参考</p>
-            <p style="margin-top:4px;">搜索关键词: {report.total_keywords} 个 | 搜索引擎: {len(report.source_stats)} 个</p>
-        </div>
+    <!-- Footer -->
+    <div class="footer">
+        <p>耐火材料招标采购信息搜索工具 &middot; 每日自动搜索 &middot; 数据仅供参考</p>
+        <p>搜索关键词: {report.total_keywords} 个 &middot; 搜索引擎: {len(report.source_stats)} 个</p>
     </div>
 
     <script>
         function switchTab(tabName) {{
-            // 隐藏所有内容
             document.querySelectorAll('.results-section').forEach(s => s.classList.remove('active'));
-            // 取消所有按钮选中
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-
-            // 显示目标内容
             document.getElementById('tab-' + tabName).classList.add('active');
-            // 选中对应按钮
             event.currentTarget.classList.add('active');
         }}
 
-        // 为结果卡片添加入场动画
+        // 入场动画
         document.addEventListener('DOMContentLoaded', function() {{
-            const cards = document.querySelectorAll('.result-card');
-            cards.forEach((card, index) => {{
+            const observer = new IntersectionObserver((entries) => {{
+                entries.forEach(entry => {{
+                    if (entry.isIntersecting) {{
+                        entry.target.style.opacity = '1';
+                        entry.target.style.transform = 'translateY(0)';
+                        observer.unobserve(entry.target);
+                    }}
+                }});
+            }}, {{ threshold: 0.1 }});
+
+            document.querySelectorAll('.result-card').forEach(card => {{
                 card.style.opacity = '0';
-                card.style.transform = 'translateY(20px)';
-                setTimeout(() => {{
-                    card.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
-                    card.style.opacity = '1';
-                    card.style.transform = 'translateY(0)';
-                }}, index * 60);
+                card.style.transform = 'translateY(16px)';
+                card.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                observer.observe(card);
             }});
         }});
     </script>
@@ -482,44 +563,52 @@ def generate_html_report(report: SearchReport) -> str:
     with open(filepath, "w", encoding="utf-8") as f:
         f.write(html)
 
+    # 同时复制到 docs 目录用于 GitHub Pages
+    docs_dir = os.path.join(_get_app_dir(), "docs")
+    os.makedirs(docs_dir, exist_ok=True)
+    docs_path = os.path.join(docs_dir, "index.html")
+    with open(docs_path, "w", encoding="utf-8") as f:
+        f.write(html)
+
     return filepath
 
 
 def _render_results(results: List[SearchResult], category: str) -> str:
-    """渲染结果列表"""
     if not results:
         return """
         <div class="empty-state">
-            <div class="icon">📭</div>
-            <p>暂无此类结果</p>
+            <div class="empty-icon">📭</div>
+            <div class="empty-text">暂无此类结果</div>
         </div>"""
 
     cards = []
     for r in results:
-        card_class = f"{category}-card" if category != "all" else f"{_get_card_class(r.category)}-card"
-        tag_class = f"tag-{_get_tag_class(r.category)}"
-        score_class = _get_score_class(r.relevance_score)
+        cat_class = f"cat-{_get_cat_class(r.category)}"
+        tag_class = f"tag-{_get_cat_class(r.category)}"
+        score_class = "high" if r.relevance_score >= 70 else ("mid" if r.relevance_score >= 40 else "")
 
-        # 截断过长的 URL 用于显示
-        display_url = r.url[:80] + "..." if len(r.url) > 80 else r.url
+        # 构建额外信息区域
+        extra_html = _build_extra_info(r)
+
+        # 构建跳转按钮
+        visit_btn = f"""<a href="{_esc(r.url)}" target="_blank" rel="noopener" class="visit-btn">
+            查看详情 <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6h8M7 3l3 3-3 3"/></svg>
+        </a>"""
 
         card = f"""
-        <div class="result-card {card_class}">
-            <div class="card-header">
-                <div class="title">
-                    <a href="{_escape_html(r.url)}" target="_blank" rel="noopener">
-                        {_escape_html(r.title)}
-                    </a>
-                </div>
-                <span class="score-badge {score_class}">{r.relevance_score:.0f}分</span>
+        <div class="result-card {cat_class}">
+            <div class="card-title">
+                <a href="{_esc(r.url)}" target="_blank" rel="noopener">{_esc(r.title)}</a>
             </div>
-            <div class="snippet">{_escape_html(r.snippet)}</div>
-            <div class="meta">
-                <span class="category-tag {tag_class}">{r.category}</span>
-                <span>📍 {_escape_html(r.source)}</span>
-                <span>🔑 {_escape_html(r.keyword)}</span>
-                {f'<span>📅 {_escape_html(r.date)}</span>' if r.date else ''}
-                <span>🔗 {_escape_html(display_url)}</span>
+            <div class="card-snippet">{_esc(r.snippet)}</div>
+            {extra_html}
+            <div class="card-meta">
+                <span class="tag {tag_class}">{r.category}</span>
+                <span class="tag tag-score {score_class}">{r.relevance_score:.0f}分</span>
+                <span class="tag tag-source">{_esc(r.source)}</span>
+                <span class="tag tag-keyword">{_esc(r.keyword)}</span>
+                {f'<span class="tag tag-date">{_esc(r.date)}</span>' if r.date else ''}
+                {visit_btn}
             </div>
         </div>"""
         cards.append(card)
@@ -527,12 +616,32 @@ def _render_results(results: List[SearchResult], category: str) -> str:
     return "".join(cards)
 
 
+def _build_extra_info(r: SearchResult) -> str:
+    """构建额外信息区域（预算、截止日期、地区、发布单位等）"""
+    items = []
+    if r.budget:
+        items.append(f'<div class="extra-item"><span class="label">💰 预算:</span><span class="value budget">{_esc(r.budget)}</span></div>')
+    if r.deadline:
+        items.append(f'<div class="extra-item"><span class="label">⏰ 截止:</span><span class="value deadline">{_esc(r.deadline)}</span></div>')
+    if r.publisher:
+        items.append(f'<div class="extra-item"><span class="label">🏢 采购方:</span><span class="value">{_esc(r.publisher)}</span></div>')
+    if r.region:
+        items.append(f'<div class="extra-item"><span class="label">📍 地区:</span><span class="value">{_esc(r.region)}</span></div>')
+    if r.bid_type:
+        items.append(f'<div class="extra-item"><span class="label">📋 类型:</span><span class="value">{_esc(r.bid_type)}</span></div>')
+    if r.domain:
+        items.append(f'<div class="extra-item"><span class="label">🌐 来源:</span><span class="value">{_esc(r.domain)}</span></div>')
+
+    if not items:
+        return ""
+
+    return f'<div class="extra-info">{"".join(items)}</div>'
+
+
 def _render_errors(errors: List[str]) -> List[str]:
-    """渲染错误信息"""
     if not errors:
         return []
-
-    items = [f"<li>{_escape_html(e)}</li>" for e in errors]
+    items = [f"<li>{_esc(e)}</li>" for e in errors]
     return [f"""
     <div class="errors-section">
         <h3>⚠️ 搜索过程中的错误 ({len(errors)})</h3>
@@ -540,24 +649,11 @@ def _render_errors(errors: List[str]) -> List[str]:
     </div>"""]
 
 
-def _get_card_class(category: str) -> str:
+def _get_cat_class(category: str) -> str:
     return {"招标采购": "bid", "材料采购": "material", "窑炉维修": "furnace"}.get(category, "bid")
 
 
-def _get_tag_class(category: str) -> str:
-    return _get_card_class(category)
-
-
-def _get_score_class(score: float) -> str:
-    if score >= 70:
-        return "score-high"
-    elif score >= 40:
-        return "score-mid"
-    return "score-low"
-
-
-def _escape_html(text: str) -> str:
-    """转义HTML特殊字符"""
+def _esc(text: str) -> str:
     if not text:
         return ""
     return (text

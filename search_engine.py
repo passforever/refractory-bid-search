@@ -1,6 +1,6 @@
 """
 耐火材料招标采购信息搜索工具 - 核心搜索引擎
-支持多源搜索、关键词组合、日期过滤、结果去重
+支持多源搜索、关键词组合、日期过滤、结果去重、API数据源
 """
 
 import re
@@ -23,7 +23,6 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-# 添加应用程序目录到路径（兼容 PyInstaller 打包）
 def _get_app_dir():
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
@@ -35,8 +34,6 @@ import requests
 from bs4 import BeautifulSoup
 
 import config
-
-# ==================== 日志配置 ====================
 
 logging.basicConfig(
     level=logging.INFO,
@@ -50,23 +47,114 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SearchResult:
-    """单条搜索结果"""
+    """单条搜索结果 - 增强版，含更多字段"""
     title: str = ""
     url: str = ""
     snippet: str = ""
-    source: str = ""       # 来源平台（百度、必应等）
-    keyword: str = ""      # 匹配的关键词
-    date: str = ""         # 发布日期
-    category: str = ""     # 分类（招标/窑炉维修/材料采购）
-    relevance_score: float = 0.0  # 相关度评分
+    source: str = ""
+    keyword: str = ""
+    date: str = ""
+    category: str = ""
+    relevance_score: float = 0.0
+    # 新增字段 - 更多信息
+    publisher: str = ""      # 发布单位/采购人
+    budget: str = ""         # 预算金额
+    deadline: str = ""       # 投标截止日期
+    region: str = ""         # 地区
+    bid_type: str = ""       # 招标类型（公开招标/竞争性谈判/询价等）
+    contact: str = ""        # 联系方式
+    domain: str = ""         # 来源域名
+    snippet_full: str = ""   # 完整摘要（不限长度）
 
     @property
     def uid(self) -> str:
-        """唯一标识，用于去重"""
-        # 用 URL 的域名+路径（去掉查询参数）作为唯一标识
         parsed = urlparse(self.url)
         key = f"{parsed.netloc}{parsed.path}"
         return hashlib.md5(key.encode()).hexdigest()
+
+    def extract_extra_info(self):
+        """从标题和摘要中提取额外信息"""
+        text = f"{self.title} {self.snippet}"
+
+        # 提取预算金额
+        budget_patterns = [
+            r'预算[金额]?[：:]\s*([\d,.]+)\s*万?元',
+            r'金额[：:]\s*([\d,.]+)\s*万?元',
+            r'([\d,.]+)\s*万元',
+            r'预算[金额]?[：:]\s*([\d,.]+)',
+        ]
+        for pat in budget_patterns:
+            m = re.search(pat, text)
+            if m:
+                val = m.group(1)
+                if '万' not in text[m.start():m.end()] and float(val.replace(',','')) < 100:
+                    val += '万元'
+                elif '万' in text[m.start():m.end()]:
+                    val += '万元'
+                else:
+                    val += '元'
+                self.budget = val
+                break
+
+        # 提取截止日期
+        deadline_patterns = [
+            r'(?:截止|开标)[时间日期][：:]\s*(\d{4}[-/年]\d{1,2}[-/月]\d{1,2}[日]?\s*\d{0,2}[：:]?\d{0,2})',
+            r'(\d{4}[-/年]\d{1,2}[-/月]\d{1,2}[日]?)\s*(?:截止|开标|投标)',
+        ]
+        for pat in deadline_patterns:
+            m = re.search(pat, text)
+            if m:
+                self.deadline = m.group(1).replace("年","-").replace("月","-").replace("日","").replace("/","-")
+                break
+
+        # 提取地区
+        regions = ["北京","上海","天津","重庆","河北","山西","辽宁","吉林","黑龙江",
+                   "江苏","浙江","安徽","福建","江西","山东","河南","湖北","湖南",
+                   "广东","海南","四川","贵州","云南","陕西","甘肃","青海","台湾",
+                   "内蒙古","广西","西藏","宁夏","新疆","香港","澳门"]
+        for r in regions:
+            if r in text:
+                self.region = r
+                break
+
+        # 提取招标类型
+        bid_types = {
+            "公开招标": ["公开招标"],
+            "邀请招标": ["邀请招标"],
+            "竞争性谈判": ["竞争性谈判"],
+            "竞争性磋商": ["竞争性磋商"],
+            "询价采购": ["询价", "询价采购"],
+            "单一来源": ["单一来源"],
+            "比选": ["比选"],
+        }
+        for btype, patterns in bid_types.items():
+            if any(p in text for p in patterns):
+                self.bid_type = btype
+                break
+
+        # 提取发布单位
+        pub_patterns = [
+            r'(?:采购人|采购单位|招标人|业主|采购方)[：:]\s*([^\s,，。；;]+)',
+            r'([^\s,，。；;]+(?:公司|集团|厂|局|院|中心|部|处|站|所))',
+        ]
+        for pat in pub_patterns:
+            m = re.search(pat, text)
+            if m:
+                candidate = m.group(1)
+                if len(candidate) > 3 and len(candidate) < 30:
+                    self.publisher = candidate
+                    break
+
+        # 提取域名
+        if self.url:
+            try:
+                parsed = urlparse(self.url)
+                self.domain = parsed.netloc
+            except:
+                pass
+
+        # 保存完整摘要
+        self.snippet_full = self.snippet
 
 
 @dataclass
@@ -85,8 +173,6 @@ class SearchReport:
 # ==================== 搜索引擎基类 ====================
 
 class BaseSearchEngine:
-    """搜索引擎基类"""
-
     def __init__(self, name: str, base_url: str):
         self.name = name
         self.base_url = base_url
@@ -94,12 +180,10 @@ class BaseSearchEngine:
         self.session.headers.update(config.HEADERS)
 
     def _delay(self):
-        """随机延迟，避免反爬"""
         delay = random.uniform(config.REQUEST_DELAY_MIN, config.REQUEST_DELAY_MAX)
         time.sleep(delay)
 
     def _fetch_page(self, url: str, encoding: str = "utf-8") -> Optional[str]:
-        """获取页面内容"""
         for attempt in range(config.MAX_RETRIES + 1):
             try:
                 resp = self.session.get(url, timeout=config.REQUEST_TIMEOUT)
@@ -114,11 +198,9 @@ class BaseSearchEngine:
         return None
 
     def search(self, keyword: str, max_pages: int = 2) -> List[SearchResult]:
-        """搜索关键词，返回结果列表"""
         raise NotImplementedError
 
     def _classify_result(self, result: SearchResult) -> str:
-        """对结果进行分类"""
         text = (result.title + " " + result.snippet).lower()
         if any(k in text for k in ["维修", "检修", "砌筑", "施工", "筑炉"]):
             return "窑炉维修"
@@ -127,39 +209,30 @@ class BaseSearchEngine:
         return "招标采购"
 
     def _calculate_relevance(self, result: SearchResult) -> float:
-        """计算相关度评分"""
-        score = 50.0  # 基础分
+        score = 50.0
         text = (result.title + " " + result.snippet).lower()
 
-        # 关键词命中加分
         high_value = ["耐火", "招标", "采购", "中标", "高铝砖", "硅砖", "浇注料"]
         for kw in high_value:
             if kw in text:
                 score += 10
 
-        # 窑炉类型加分
         furnaces = ["高炉", "热风炉", "焦炉", "窑炉", "加热炉", "回转窑"]
         for kw in furnaces:
             if kw in text:
                 score += 8
 
-        # 时间加分（越新越高）
         if result.date:
             try:
                 pub_date = datetime.strptime(result.date[:10], "%Y-%m-%d")
                 days_ago = (datetime.now() - pub_date).days
-                if days_ago <= 3:
-                    score += 20
-                elif days_ago <= 7:
-                    score += 15
-                elif days_ago <= 14:
-                    score += 10
-                elif days_ago <= 30:
-                    score += 5
+                if days_ago <= 3: score += 20
+                elif days_ago <= 7: score += 15
+                elif days_ago <= 14: score += 10
+                elif days_ago <= 30: score += 5
             except (ValueError, IndexError):
                 pass
 
-        # 排除词减分
         for ex in config.EXCLUDE_KEYWORDS:
             if ex in text:
                 score -= 30
@@ -170,8 +243,6 @@ class BaseSearchEngine:
 # ==================== 百度搜索 ====================
 
 class BaiduSearchEngine(BaseSearchEngine):
-    """百度搜索引擎"""
-
     def __init__(self):
         super().__init__("百度", config.SEARCH_SOURCES["baidu"]["base_url"])
 
@@ -196,22 +267,18 @@ class BaiduSearchEngine(BaseSearchEngine):
         results = []
         soup = BeautifulSoup(html, "html.parser")
 
-        # 百度搜索结果容器 - 多种选择器兼容
         items = soup.select("div.result, div.c-container")
         if not items:
             items = soup.select("div[class*='result']")
         if not items:
-            # 尝试更宽泛的选择器
             items = soup.select("#content_left > div")
         if not items:
-            # 最终回退：找所有包含 h3 和 a 的 div
             items = [div for div in soup.find_all("div") if div.find("h3") and div.find("a")]
 
         for item in items:
             try:
                 result = SearchResult(source=self.name, keyword=keyword)
 
-                # 提取标题 - 多种选择器兼容
                 title_tag = (
                     item.select_one("h3 a")
                     or item.select_one(".t a")
@@ -222,9 +289,8 @@ class BaiduSearchEngine(BaseSearchEngine):
                     result.title = title_tag.get_text(strip=True)
                     href = title_tag.get("href", "")
                     if href:
-                        result.url = href  # 先保存原始链接，后续统一解析
+                        result.url = self._resolve_baidu_url(href)
 
-                # 提取摘要 - 多种选择器兼容
                 snippet_tag = (
                     item.select_one(".c-abstract")
                     or item.select_one(".c-span-last")
@@ -236,34 +302,28 @@ class BaiduSearchEngine(BaseSearchEngine):
                 if snippet_tag:
                     result.snippet = snippet_tag.get_text(strip=True)
                 elif result.title:
-                    # 回退：获取所有文本，去除标题
                     all_text = item.get_text(separator=" ", strip=True)
                     snippet = all_text.replace(result.title, "", 1).strip()
-                    # 清理片段（去掉过长文本）
-                    if len(snippet) > 300:
-                        snippet = snippet[:300] + "..."
+                    if len(snippet) > 500:
+                        snippet = snippet[:500] + "..."
                     result.snippet = snippet
 
-                # 提取日期 - 增强匹配
                 text_content = item.get_text()
-                # 匹配各种日期格式
                 date_patterns = [
-                    r'(\d{4}[-/年]\d{1,2}[-/月]\d{1,2}[日]?)',  # 2024-01-15 / 2024年1月15日
-                    r'(\d{1,2}[-/月]\d{1,2}[日]?\s*\d{4})',      # 1月15日 2024
-                    r'(\d+天前|\d+小时前|\d+分钟前)',              # 3天前 / 2小时前
+                    r'(\d{4}[-/年]\d{1,2}[-/月]\d{1,2}[日]?)',
+                    r'(\d{1,2}[-/月]\d{1,2}[日]?\s*\d{4})',
+                    r'(\d+天前|\d+小时前|\d+分钟前)',
                 ]
                 for pattern in date_patterns:
                     date_match = re.search(pattern, text_content)
                     if date_match:
                         date_str = date_match.group(1)
-                        date_str = date_str.replace("年", "-").replace("月", "-").replace("日", "").replace("/", "-")
-                        # 处理相对日期
+                        date_str = date_str.replace("年","-").replace("月","-").replace("日","").replace("/","-")
                         if "天前" in date_str:
                             days = int(re.search(r'(\d+)', date_str).group(1))
                             result.date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
                         elif "小时前" in date_str:
-                            hours = int(re.search(r'(\d+)', date_str).group(1))
-                            result.date = (datetime.now() - timedelta(hours=hours)).strftime("%Y-%m-%d")
+                            result.date = datetime.now().strftime("%Y-%m-%d")
                         elif "分钟前" in date_str:
                             result.date = datetime.now().strftime("%Y-%m-%d")
                         else:
@@ -273,6 +333,7 @@ class BaiduSearchEngine(BaseSearchEngine):
                 if result.title and result.url:
                     result.category = self._classify_result(result)
                     result.relevance_score = self._calculate_relevance(result)
+                    result.extract_extra_info()
                     results.append(result)
 
             except Exception as e:
@@ -282,14 +343,11 @@ class BaiduSearchEngine(BaseSearchEngine):
         return results
 
     def _resolve_baidu_url(self, href: str) -> str:
-        """解析百度跳转链接 - 仅提取参数中的真实URL，不发额外请求"""
         if "baidu.com/link" in href:
-            # 尝试从URL参数中提取真实URL（百度链接格式：?url=xxx 或 &url=xxx）
             parsed = urlparse(href)
             params = parse_qs(parsed.query)
             if "url" in params:
                 return params["url"][0]
-            # 某些百度链接在 fragment 或 path 中编码
             try:
                 from urllib.parse import unquote
                 decoded = unquote(href)
@@ -298,7 +356,6 @@ class BaiduSearchEngine(BaseSearchEngine):
                     return url_match.group(1)
             except:
                 pass
-            # 无法解析则保留原始链接
             return href
         return href
 
@@ -306,8 +363,6 @@ class BaiduSearchEngine(BaseSearchEngine):
 # ==================== 必应搜索 ====================
 
 class BingSearchEngine(BaseSearchEngine):
-    """必应搜索引擎"""
-
     def __init__(self):
         super().__init__("必应", config.SEARCH_SOURCES["bing"]["base_url"])
 
@@ -336,20 +391,17 @@ class BingSearchEngine(BaseSearchEngine):
         if not items:
             items = soup.select("#b_results > li")
         if not items:
-            # 回退选择器
             items = soup.select("ol#b_results > li")
 
         for item in items:
             try:
                 result = SearchResult(source=self.name, keyword=keyword)
 
-                # 标题提取
                 title_tag = item.select_one("h2 a") or item.select_one("h2 > a")
                 if title_tag:
                     result.title = title_tag.get_text(strip=True)
                     result.url = title_tag.get("href", "")
 
-                # 摘要提取
                 snippet_tag = (
                     item.select_one(".b_caption p")
                     or item.select_one(".b_caption > p")
@@ -358,7 +410,6 @@ class BingSearchEngine(BaseSearchEngine):
                 if snippet_tag:
                     result.snippet = snippet_tag.get_text(strip=True)
 
-                # 日期提取 - 增强版
                 text_content = item.get_text()
                 date_patterns = [
                     r'(\d{4}[-/年]\d{1,2}[-/月]\d{1,2}[日]?)',
@@ -368,7 +419,7 @@ class BingSearchEngine(BaseSearchEngine):
                     date_match = re.search(pattern, text_content)
                     if date_match:
                         date_str = date_match.group(1)
-                        date_str = date_str.replace("年", "-").replace("月", "-").replace("日", "").replace("/", "-")
+                        date_str = date_str.replace("年","-").replace("月","-").replace("日","").replace("/","-")
                         if "天前" in date_str:
                             days = int(re.search(r'(\d+)', date_str).group(1))
                             result.date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
@@ -386,6 +437,7 @@ class BingSearchEngine(BaseSearchEngine):
                 if result.title and result.url:
                     result.category = self._classify_result(result)
                     result.relevance_score = self._calculate_relevance(result)
+                    result.extract_extra_info()
                     results.append(result)
 
             except Exception as e:
@@ -398,18 +450,11 @@ class BingSearchEngine(BaseSearchEngine):
 # ==================== 招标网站搜索 ====================
 
 class BidSiteSearchEngine(BaseSearchEngine):
-    """招标网站搜索引擎 - 聚合多个招标平台"""
-
     def __init__(self):
         super().__init__("招标网站", "")
-        self.platforms = {
-            "chinabidding": "https://search.chinabidding.cn/search",
-            "zhaobiao": "https://www.zhaobiao.cn/search",
-        }
 
     def search(self, keyword: str, max_pages: int = 2) -> List[SearchResult]:
         results = []
-        # 通过必应搜索招标网站内容（必应更稳定，反爬较轻）
         search_queries = [
             f'site:chinabidding.cn {keyword}',
             f'site:zhaobiao.cn {keyword}',
@@ -426,6 +471,7 @@ class BidSiteSearchEngine(BaseSearchEngine):
                     r.keyword = keyword
                     r.category = self._classify_result(r)
                     r.relevance_score = self._calculate_relevance(r)
+                    r.extract_extra_info()
                 results.extend(site_results)
             except Exception as e:
                 logger.warning(f"[招标网站] 搜索失败: {e}")
@@ -434,17 +480,162 @@ class BidSiteSearchEngine(BaseSearchEngine):
         return results
 
 
+# ==================== API 数据源搜索 ====================
+
+class ApiSearchEngine(BaseSearchEngine):
+    """通过配置的 API 数据源搜索结构化招标数据"""
+
+    def __init__(self):
+        super().__init__("API数据源", "")
+
+    def search(self, keyword: str, max_pages: int = 1) -> List[SearchResult]:
+        results = []
+        api_sources = config.ConfigManager.get_api_sources()
+
+        for key, source_cfg in api_sources.items():
+            if not source_cfg.get("enabled", False):
+                continue
+
+            logger.info(f"[API] 搜索 {source_cfg.get('name', key)}: {keyword}")
+            try:
+                api_results = self._search_api(key, source_cfg, keyword)
+                results.extend(api_results)
+            except Exception as e:
+                logger.warning(f"[API] {source_cfg.get('name', key)} 搜索失败: {e}")
+            self._delay()
+
+        return results
+
+    def _search_api(self, key: str, source_cfg: dict, keyword: str) -> List[SearchResult]:
+        """根据 API 配置搜索"""
+        results = []
+        api_url = source_cfg.get("api_url", "")
+        api_type = source_cfg.get("api_type", "html")
+        params_template = source_cfg.get("params", {})
+        encoding = source_cfg.get("encoding", "utf-8")
+        selectors = source_cfg.get("result_selector", {})
+
+        # 构建请求参数
+        params = {}
+        today = datetime.now().strftime("%Y:%m:%d")
+        date_30d_ago = (datetime.now() - timedelta(days=30)).strftime("%Y:%m:%d")
+        for k, v in params_template.items():
+            v = str(v).replace("{keyword}", keyword).replace("{today}", today).replace("{date_30d_ago}", date_30d_ago)
+            params[k] = v
+
+        if api_type == "json":
+            # JSON API
+            try:
+                resp = self.session.get(api_url, params=params, timeout=config.REQUEST_TIMEOUT)
+                resp.encoding = encoding
+                if resp.status_code == 200:
+                    data = resp.json()
+                    # 通用 JSON 解析 - 尝试提取列表
+                    items = self._extract_json_list(data)
+                    for item in items[:20]:
+                        result = SearchResult(source=source_cfg.get("name", key), keyword=keyword)
+                        if isinstance(item, dict):
+                            result.title = str(item.get("title", item.get("name", "")))
+                            result.url = str(item.get("url", item.get("link", item.get("href", ""))))
+                            result.snippet = str(item.get("snippet", item.get("description", item.get("content", item.get("summary", "")))))
+                            result.date = str(item.get("date", item.get("publishDate", item.get("pubDate", ""))))[:10]
+                            result.publisher = str(item.get("buyer", item.get("purchaser", item.get("company", ""))))
+                            result.budget = str(item.get("budget", item.get("amount", "")))
+                            result.deadline = str(item.get("deadline", item.get("endDate", "")))
+                            result.region = str(item.get("region", item.get("area", item.get("province", ""))))
+                            if result.title and result.url:
+                                result.category = self._classify_result(result)
+                                result.relevance_score = self._calculate_relevance(result)
+                                result.extract_extra_info()
+                                results.append(result)
+            except Exception as e:
+                logger.warning(f"[API] JSON 解析失败: {e}")
+
+        else:
+            # HTML 页面爬取
+            try:
+                if params:
+                    url = api_url + "?" + "&".join(f"{k}={quote(str(v))}" for k, v in params.items())
+                else:
+                    url = api_url + "?kw=" + quote(keyword)
+
+                html = self._fetch_page(url, encoding)
+                if not html:
+                    return results
+
+                soup = BeautifulSoup(html, "html.parser")
+                container_sel = selectors.get("container", "div")
+                containers = soup.select(container_sel)
+
+                for container in containers[:20]:
+                    result = SearchResult(source=source_cfg.get("name", key), keyword=keyword)
+
+                    # 标题
+                    title_sel = selectors.get("title", "a")
+                    title_tag = container.select_one(title_sel)
+                    if title_tag:
+                        result.title = title_tag.get_text(strip=True)
+
+                    # URL
+                    url_sel = selectors.get("url", "a[href]")
+                    url_tag = container.select_one(url_sel)
+                    if url_tag:
+                        href = url_tag.get("href", "")
+                        if href and not href.startswith("http"):
+                            href = urljoin(api_url, href)
+                        result.url = href
+
+                    # 摘要
+                    snippet_sel = selectors.get("snippet", "p")
+                    snippet_tag = container.select_one(snippet_sel)
+                    if snippet_tag:
+                        result.snippet = snippet_tag.get_text(strip=True)
+
+                    # 日期
+                    date_sel = selectors.get("date", "span")
+                    date_tag = container.select_one(date_sel)
+                    if date_tag:
+                        result.date = date_tag.get_text(strip=True)[:10]
+
+                    if result.title and result.url:
+                        result.category = self._classify_result(result)
+                        result.relevance_score = self._calculate_relevance(result)
+                        result.extract_extra_info()
+                        results.append(result)
+
+            except Exception as e:
+                logger.warning(f"[API] HTML 解析失败: {e}")
+
+        return results
+
+    def _extract_json_list(self, data):
+        """从 JSON 响应中提取列表数据"""
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            # 尝试常见字段名
+            for key in ["data", "results", "items", "list", "records", "rows", "content"]:
+                if key in data:
+                    val = data[key]
+                    if isinstance(val, list):
+                        return val
+                    if isinstance(val, dict):
+                        return self._extract_json_list(val)
+            # 遍历所有值找列表
+            for v in data.values():
+                if isinstance(v, list) and len(v) > 0:
+                    return v
+        return []
+
+
 # ==================== 搜索调度器 ====================
 
 class SearchScheduler:
-    """搜索调度器 - 协调所有搜索引擎"""
-
     def __init__(self):
         self.engines: Dict[str, BaseSearchEngine] = {}
         self._init_engines()
 
     def _init_engines(self):
-        """初始化搜索引擎"""
         if config.SEARCH_SOURCES["baidu"]["enabled"]:
             self.engines["baidu"] = BaiduSearchEngine()
         if config.SEARCH_SOURCES["bing"]["enabled"]:
@@ -452,10 +643,15 @@ class SearchScheduler:
         if config.SEARCH_SOURCES["chinabidding"]["enabled"] or config.SEARCH_SOURCES["zhaobiao"]["enabled"]:
             self.engines["bidsite"] = BidSiteSearchEngine()
 
+        # 检查是否有启用的 API 数据源
+        api_sources = config.ConfigManager.get_api_sources()
+        has_enabled_api = any(s.get("enabled", False) for s in api_sources.values())
+        if has_enabled_api:
+            self.engines["api"] = ApiSearchEngine()
+
     def run_search(self, keywords: List[str] = None, max_pages: int = 2) -> SearchReport:
-        """执行搜索任务"""
         if keywords is None:
-            keywords = config.ALL_KEYWORDS
+            keywords = config.ConfigManager.get_keywords()
 
         report = SearchReport(
             search_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -477,10 +673,11 @@ class SearchScheduler:
                     max_p = config.SEARCH_SOURCES.get(engine_name, {}).get("max_pages", max_pages)
                     if engine_name == "bidsite":
                         max_p = 1
+                    elif engine_name == "api":
+                        max_p = 1
                     results = engine.search(keyword, max_pages=max_p)
                     logger.info(f"  ✅ [{engine.name}] 找到 {len(results)} 条结果")
 
-                    # 去重
                     new_count = 0
                     for r in results:
                         if r.uid not in seen_uids:
@@ -496,13 +693,9 @@ class SearchScheduler:
                     logger.error(f"  ❌ {error_msg}")
                     report.errors.append(error_msg)
 
-        # 过滤结果
         filtered_results = self._filter_results(all_results)
-
-        # 按相关度排序
         filtered_results.sort(key=lambda x: x.relevance_score, reverse=True)
 
-        # 统计
         report.results = filtered_results
         report.total_results = len(filtered_results)
         report.source_stats = self._count_by_source(filtered_results)
@@ -515,26 +708,16 @@ class SearchScheduler:
         return report
 
     def _filter_results(self, results: List[SearchResult]) -> List[SearchResult]:
-        """过滤搜索结果"""
         filtered = []
         for r in results:
             text = (r.title + " " + r.snippet).lower()
-
-            # 排除不相关结果
             if any(ex in text for ex in config.EXCLUDE_KEYWORDS):
                 continue
-
-            # 必须包含至少一个核心词
             if not any(kw in text for kw in config.MUST_CONTAIN_ANY):
                 continue
-
-            # 相关度阈值
             if r.relevance_score < 20:
                 continue
-
-            # URL 去重补充检查（同域名+相似标题）
             filtered.append(r)
-
         return filtered
 
     def _count_by_source(self, results: List[SearchResult]) -> Dict[str, int]:
