@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>耐火材料招标采购信息日报 - 2026-06-06</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: linear-gradient(135deg, #0c0c1d 0%, #1a1a2e 50%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* ===== Header ===== */
+        .header {
+            text-align: center;
+            padding: 40px 20px;
+            margin-bottom: 30px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.06);
+            backdrop-filter: blur(20px);
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            background: linear-gradient(135deg, #f97316, #ef4444, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+            font-weight: 800;
+            letter-spacing: 2px;
+        }
+
+        .header .subtitle {
+            color: #94a3b8;
+            font-size: 0.95rem;
+        }
+
+        .header .date-badge {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 6px 20px;
+            background: linear-gradient(135deg, rgba(249,115,22,0.2), rgba(239,68,68,0.2));
+            border: 1px solid rgba(249,115,22,0.3);
+            border-radius: 20px;
+            color: #fb923c;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        /* ===== Stats Cards ===== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            padding: 24px 20px;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+        }
+
+        .stat-card .number {
+            font-size: 2.4rem;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .stat-card .label {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-card.total .number { background: linear-gradient(135deg, #60a5fa, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .stat-card.bid .number { background: linear-gradient(135deg, #f97316, #ea580c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .stat-card.material .number { background: linear-gradient(135deg, #10b981, #059669); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .stat-card.furnace .number { background: linear-gradient(135deg, #ec4899, #db2777); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+        .stat-card.total { border-color: rgba(96,165,250,0.2); }
+        .stat-card.bid { border-color: rgba(249,115,22,0.2); }
+        .stat-card.material { border-color: rgba(16,185,129,0.2); }
+        .stat-card.furnace { border-color: rgba(236,72,153,0.2); }
+
+        /* ===== Tab Navigation ===== */
+        .tab-nav {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            padding: 10px 24px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            background: rgba(255,255,255,0.03);
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn:hover {
+            background: rgba(255,255,255,0.08);
+            color: #e2e8f0;
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, rgba(249,115,22,0.25), rgba(239,68,68,0.2));
+            border-color: rgba(249,115,22,0.4);
+            color: #fb923c;
+        }
+
+        .tab-btn .count {
+            display: inline-block;
+            margin-left: 6px;
+            background: rgba(255,255,255,0.1);
+            padding: 1px 8px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+        }
+
+        .tab-btn.active .count {
+            background: rgba(249,115,22,0.3);
+        }
+
+        /* ===== Result Cards ===== */
+        .results-section {
+            display: none;
+        }
+
+        .results-section.active {
+            display: block;
+        }
+
+        .result-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 14px;
+            padding: 20px 24px;
+            margin-bottom: 14px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .result-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            border-radius: 4px 0 0 4px;
+        }
+
+        .result-card.bid-card::before { background: linear-gradient(180deg, #f97316, #ea580c); }
+        .result-card.material-card::before { background: linear-gradient(180deg, #10b981, #059669); }
+        .result-card.furnace-card::before { background: linear-gradient(180deg, #ec4899, #db2777); }
+
+        .result-card:hover {
+            background: rgba(255,255,255,0.07);
+            border-color: rgba(255,255,255,0.12);
+            transform: translateX(4px);
+        }
+
+        .result-card .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+            gap: 12px;
+        }
+
+        .result-card .title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #f1f5f9;
+            flex: 1;
+        }
+
+        .result-card .title a {
+            color: inherit;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .result-card .title a:hover {
+            color: #fb923c;
+        }
+
+        .result-card .score-badge {
+            flex-shrink: 0;
+            padding: 3px 10px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .score-high { background: rgba(16,185,129,0.2); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
+        .score-mid { background: rgba(249,115,22,0.2); color: #fb923c; border: 1px solid rgba(249,115,22,0.3); }
+        .score-low { background: rgba(148,163,184,0.15); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2); }
+
+        .result-card .snippet {
+            color: #94a3b8;
+            font-size: 0.88rem;
+            margin-bottom: 10px;
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .result-card .meta {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            font-size: 0.78rem;
+            color: #64748b;
+        }
+
+        .result-card .meta span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .result-card .meta .category-tag {
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+
+        .tag-bid { background: rgba(249,115,22,0.15); color: #fb923c; }
+        .tag-material { background: rgba(16,185,129,0.15); color: #34d399; }
+        .tag-furnace { background: rgba(236,72,153,0.15); color: #f472b6; }
+
+        /* ===== Empty State ===== */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #475569;
+        }
+
+        .empty-state .icon {
+            font-size: 3rem;
+            margin-bottom: 12px;
+        }
+
+        /* ===== Errors ===== */
+        .errors-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(239,68,68,0.08);
+            border: 1px solid rgba(239,68,68,0.2);
+            border-radius: 14px;
+        }
+
+        .errors-section h3 {
+            color: #f87171;
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+        }
+
+        .errors-section ul {
+            list-style: none;
+            color: #fca5a5;
+            font-size: 0.82rem;
+        }
+
+        .errors-section li {
+            padding: 4px 0;
+        }
+
+        /* ===== Footer ===== */
+        .footer {
+            text-align: center;
+            padding: 30px;
+            color: #334155;
+            font-size: 0.8rem;
+            margin-top: 40px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 768px) {
+            .container { padding: 12px; }
+            .header h1 { font-size: 1.5rem; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .stat-card { padding: 16px 12px; }
+            .stat-card .number { font-size: 1.8rem; }
+            .result-card { padding: 14px 16px; }
+            .tab-btn { padding: 8px 16px; font-size: 0.82rem; }
+        }
+
+        /* ===== Scrollbar ===== */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+        /* ===== Highlight keyword ===== */
+        .highlight {
+            background: rgba(249,115,22,0.3);
+            color: #fb923c;
+            padding: 0 2px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🔥 耐火材料招标采购信息日报</h1>
+            <p class="subtitle">自动全网搜索 | 多源聚合 | 智能分类</p>
+            <div class="date-badge">📅 2026-06-06 | 搜索时间: 2026-06-06 20:36:59</div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card total">
+                <div class="number">12</div>
+                <div class="label">总结果数</div>
+            </div>
+            <div class="stat-card bid">
+                <div class="number">12</div>
+                <div class="label">招标采购</div>
+            </div>
+            <div class="stat-card material">
+                <div class="number">0</div>
+                <div class="label">材料采购</div>
+            </div>
+            <div class="stat-card furnace">
+                <div class="number">0</div>
+                <div class="label">窑炉维修</div>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('all')">
+                全部 <span class="count">12</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab('bid')">
+                🏛️ 招标采购 <span class="count">12</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab('material')">
+                🧱 材料采购 <span class="count">0</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab('furnace')">
+                🏭 窑炉维修 <span class="count">0</span>
+            </button>
+        </div>
+
+        <!-- All Results -->
+        <div class="results-section active" id="tab-all">
+            
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://www.baidu.com/baidu.php?url=K60000avpXkFvm7207a5-b8LDgz8_21ewNB60lJvoz5Al5DQEyi-yA0uH_UnWjsjBTuO0kbR6GsrH1C-8wtZI2mRR3Ju7FAlfzKVr-legaykDqE9AoIwIzYts5scPg_BH755sJY4TQ9pv1jxfwwnqpgzv8k9Mo0YCyt44SYCMVytfHJLuJh8eR1pWGpWAKBaZmpJdTAnZG6tQBk5LncvjbInzPa-.7R_iwGYSg_X17wxGuwKqAiaqM764XjC_o4mqnArZ-CFY3lQPK5Qbe3hnh1xdsw5CnNtIh1WvIXdrW6IPTk9tSMjESyZxu9tSMjElTrOx9tSMj_qTrOdsSxH9qVhZu33x5Gse5gjEqT5MY3xUu9vX2-muCy5A1umC.U1Yk0ZDqknvetQQDsTt-nWjNYQZJ0ZKGm1Ys0Zfq__HK1qgf_XoNYQZJ0A-V5HDYPWD0u1dEugK1nfKdpHdBmy-bIfKspyfqnHf0mv-b5Hnzn6KVIjY1nWc3g1nknWwxnH0kPdtznjRkg1DsnH-xn1msnNt4nHT30AVG5H00TMfqnW010AFG5HDdr7tznjf0Uynqn1czr7t1nHcYg1DsnHIxnW0dnNtknjD4g1KxrHDLr0KkTA-b5H00TyPGujYs0ZFMIA7M5H00Uh7GujYs0A49IZ0qn0KWIyfqPHmvrH64Pjn0mycqn7ts0ANzu1Ys0ZKs5H00UMus5H08nj0snj0snj00Ugws5H00uAwETjYs0ZFJ5H00uANv5gKW0AuY5H00TA6qn0KET1Ys0AFL5HDs0A4Y5H00TLCq0A71gv-bm1dsTzdMXh93XfKGuAnqiD4K0ZKCIZbq0Zw9ThI-IjY1nNt1nHFxr0KYIgnqPWb1n1Tknj6knj61PWbzPjDvPfKzug7Y5HDLrj0LPjbYnWfdnjR0pynqn0K1pyfquyc1mvmduhDsn1nznyDzu0KWTvYqwDPDfWF7wHD4PDwDwbNAPsK_mMnqn0K9m1Yk0ZK85HD0TydY5H00Tyd15H00uANYgvPsmHYs0ZGY5H00mMub5H00uLKY5HD0uv7Y5HD0UyPxuMFEUHYsg1Kxn7tsg1Kxn7ts0Aw9UMNBuNqsUA78pyw15HDsPjD3n10sg1c3PHmdnH-xn7tsg1Kxn7ts0ZK9I7qhUA7M5H00uAPGujYkrHbznWbYP0K-IA-b5iYk0A71TAPW5H00IgKGUhPW5H00Tydh5H00uhPdIjYs0A-1mvsqn0K9uAu_myTqnfK_uhnqn0KbmvPb5fKYTh7buHYznjcznjR0mhwGujdDwjc3fHuDfHfdnW9DfW7aPDFKf1NafYDkPj04wbn1wfKEm1Yk0AFY5H00Uv7YI1Ys0AqY5HD0ULFsIjYzc10Wnznzc1n1nWTvrHD3c1n3nj0Wn16sna3snj0snj0Wnznzc10WQinsQW0Ln1cLnBnkQW0snj0snankc10Wna3snj0snj0Wnansc10Wnansc10WnansQW0s0AF9UhV9mvnqnansc10Wn0K3TLwd5Hc1nH0LrjcL0Z7xIWYsQW0sg108njKxna3sn7tsQWb4g108nj7xna3sn7tsQWnYg108n1wxn7tsg100mMPxTZFEuA-b5H00ThqGuhk9u1Ys0Ad-IjYs0APv5fKGTdqWTADqn0KWTjYs0AN1IjYs0Z7MIvfqn0KETjDqnHm0TZ0Y5Hc0mLFW5HRsnHmd&amp;us=newvui&amp;xst=mWdDwjc3fHuDfHfdnW9DfW7aPDFKf1NafYDkPj04wbn1wf715HDvrHRsPWb1PHRkPWR4rHf3PH64g1DYPW7xn07L5UQDsTONYQZJdIakl67k5THP8OazknZ5cPgf_XCKIHYzn1DsP16zPs7Y5HDLrj0LPjbYnWfKUgDqn0cs0BYKmv6quhPxTAnKUZRqn07WUWdBmy-bIf7zIjYs0HDdrjf4PHc4n1m&amp;cegduid=nWnknjT3nWT&amp;solutionId=5976217&amp;word=" target="_blank" rel="noopener">
+                        材料招标招标-2026年招标采购信息更新
+                    </a>
+                </div>
+                <span class="score-badge score-high">100分</span>
+            </div>
+            <div class="snippet">材料招标招标-2026年招标公告,中标结果,拟建项目,采购信息等已更新!</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 百度</span>
+                <span>🔑 耐火材料 招标</span>
+                <span>📅 2026-06-06</span>
+                <span>🔗 https://www.baidu.com/baidu.php?url=K60000avpXkFvm7207a5-b8LDgz8_21ewNB60lJvoz5A...</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="http://www.baidu.com/link?url=lDQEoOutnZRRviaJpRLKIuac9WyQVH1gHiXRFCJhaCndU0zXciA4WTVvGvB8dj59ZDmJPnne-hfDUbGXbGWdQOHFzZ8TAnXyiNaHtP-fO8a" target="_blank" rel="noopener">
+                        招标公告耐火材料-招标,耐火材料,五矿集团-耐材之窗网
+                    </a>
+                </div>
+                <span class="score-badge score-high">70分</span>
+            </div>
+            <div class="snippet">招标 公告 耐火材料 -招标,耐火材料,五矿集团-耐材之窗网 2026年1月9日 中国恩菲工程技术有限公司 招标 公告致:潜在投标人中国恩菲工程技术有限公司受建设单位委托,承担金川WP镍铁技改总包项目,现对耐火材料供货及相关服务进行公开招标。 1. 项目概况与招标范围 1.1 项目名称:金川WP镍铁技改总包项目 1.2 建设单位:印尼金川WP公司 1.3 资金来源:建设单位提供 1.4 招标编号:305E17-4.015.006 1.5 招标内容… 耐材之窗网</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 百度</span>
+                <span>🔑 耐火材料 招标</span>
+                <span>📅 2026-1-9</span>
+                <span>🔗 http://www.baidu.com/link?url=lDQEoOutnZRRviaJpRLKIuac9WyQVH1gHiXRFCJhaCndU0zXci...</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://baike.baidu.com/item/%E8%80%90%E7%81%AB%E6%9D%90%E6%96%99/1038672" target="_blank" rel="noopener">
+                        耐火材料（无机非金属材料）_百度百科
+                    </a>
+                </div>
+                <span class="score-badge score-mid">60分</span>
+            </div>
+            <div class="snippet">现定义为凡物理化学性质允许其在高温环境下使用的材料称为耐火材料。 耐火材料广泛用于冶金、化工、石油、机械制造、硅酸盐、动力等工业领域，在冶金工业中用量最大，占总产量的50%～60%。</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 必应</span>
+                <span>🔑 耐火材料 招标</span>
+                
+                <span>🔗 https://baike.baidu.com/item/%E8%80%90%E7%81%AB%E6%9D%90%E6%96%99/1038672</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://zhuanlan.zhihu.com/p/5338513527" target="_blank" rel="noopener">
+                        耐火等级1、2、3、4级有什么区别？ - 知乎
+                    </a>
+                </div>
+                <span class="score-badge score-mid">60分</span>
+            </div>
+            <div class="snippet">2024年11月6日 · 在讨论耐火等级前，需理解以下几个相关概念： 耐火等级：衡量建筑整体抵抗火灾的能力，以保障建筑在火灾发生时保持必要的结构稳定性。 耐火极限：在标准火灾条件下，建筑构件（ …</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 必应</span>
+                <span>🔑 耐火材料 招标</span>
+                <span>📅 2024-11-6</span>
+                <span>🔗 https://zhuanlan.zhihu.com/p/5338513527</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://gf.cabr-fire.com/article-27247.htm" target="_blank" rel="noopener">
+                        5.1 建筑分类和耐火等级 - 建筑设计防火规范 GB50016-2014 ...
+                    </a>
+                </div>
+                <span class="score-badge score-mid">60分</span>
+            </div>
+            <div class="snippet">5.1.3 民用建筑的耐火等级应根据其建筑高度、使用功能、重要性和火灾扑救难度等确定，并应符合下列规定： 1 地下或半地下建筑（室）和一类高层建筑的耐火等级不应低于一级； 2 单、多层重要公共建 …</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 必应</span>
+                <span>🔑 耐火材料 招标</span>
+                
+                <span>🔗 https://gf.cabr-fire.com/article-27247.htm</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://www.soujianzhu.cn/NormAndRules/NormContent.aspx?id=2295" target="_blank" rel="noopener">
+                        建筑防火通用规范GB55037-2022
+                    </a>
+                </div>
+                <span class="score-badge score-mid">60分</span>
+            </div>
+            <div class="snippet">2023年6月1日 · 建筑物之间的防火间距要根据建筑的耐火等级、外墙的耐火性能与防火构造、建筑的高度与火灾危险性、建筑外部的消防救援条件等影响防火间距的主要因素，按照防止相邻建筑发生火灾后 …</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 必应</span>
+                <span>🔑 耐火材料 招标</span>
+                <span>📅 2023-6-1</span>
+                <span>🔗 https://www.soujianzhu.cn/NormAndRules/NormContent.aspx?id=2295</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://www.mee.gov.cn/ywgz/fgbz/bz/bzwb/dqhjbh/dqgdwrywrwpfbz/202512/W020251217419384991481.pdf" target="_blank" rel="noopener">
+                        中华人民共和国国家标准耐火材
+                    </a>
+                </div>
+                <span class="score-badge score-mid">60分</span>
+            </div>
+            <div class="snippet">2025年11月21日 · 常见的包括硅质、黏土 质、高铝 质、铬 质、镁 质、白云 石质、碳 质、锆质耐火材料和由这些材料组成的复合耐火材料,以及由氧化物、 氮化物、 硼化物、 碳化物、 硅化物等制成的特 …</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 必应</span>
+                <span>🔑 耐火材料 招标</span>
+                <span>📅 2025-11-21</span>
+                <span>🔗 https://www.mee.gov.cn/ywgz/fgbz/bz/bzwb/dqhjbh/dqgdwrywrwpfbz/202512/W020251217...</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://www.sohu.com/a/764384076_121685896" target="_blank" rel="noopener">
+                        深度解析！什么是耐火极限与耐火等级？_建筑_仓库_厂房
+                    </a>
+                </div>
+                <span class="score-badge score-mid">60分</span>
+            </div>
+            <div class="snippet">2024年3月15日 · (二) 民用建筑的建筑构件的特殊要求 1.建筑高度大于100m的民用建筑楼板的耐火极限不应低于2.00h。 2.一、二级耐火等级建筑的上人平屋顶，其屋面板的耐火极限分别不应低于1.50h …</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 必应</span>
+                <span>🔑 耐火材料 招标</span>
+                <span>📅 2024-3-15</span>
+                <span>🔗 https://www.sohu.com/a/764384076_121685896</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://www.toutiao.com/article/7409260863250563610/" target="_blank" rel="noopener">
+                        建筑耐火等级一二三四级怎么分，一般建筑的耐火等级是几级 ...
+                    </a>
+                </div>
+                <span class="score-badge score-mid">60分</span>
+            </div>
+            <div class="snippet">2024年8月31日 · 建筑耐火等级的划分主要依据建筑材料的燃烧性能和建筑构件的耐火极限。 根据我国国家标准《建筑设计防火规范》，建筑物的耐火等级通常分为四个等级，即一级、二级、三级和四级。</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 必应</span>
+                <span>🔑 耐火材料 招标</span>
+                <span>📅 2024-8-31</span>
+                <span>🔗 https://www.toutiao.com/article/7409260863250563610/</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://www.thintherm.cn/insulation-material-knowledge/502.html" target="_blank" rel="noopener">
+                        耐火材料的概念及其范畴（什么是耐火材料？）
+                    </a>
+                </div>
+                <span class="score-badge score-mid">60分</span>
+            </div>
+            <div class="snippet">现代工业对超高温材料的性能要求越来越高，所需求的类型也越来越多。 在中国不同行业间的交流中，“耐火材料”这一术语的概念外延已经有所扩展，常简称为“耐材”，不再局限于传统意义上的耐火材 …</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 必应</span>
+                <span>🔑 耐火材料 招标</span>
+                
+                <span>🔗 https://www.thintherm.cn/insulation-material-knowledge/502.html</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://www.yunjianzhu.com/43601.html" target="_blank" rel="noopener">
+                        建筑消防等级如何划分？一二级三级四级差异全解析
+                    </a>
+                </div>
+                <span class="score-badge score-mid">60分</span>
+            </div>
+            <div class="snippet">2 天之前 · 耐火等级直接决定防火分区的最大允许建筑面积。一级耐火等级建筑防火分区面积最大为2500平方米，设有自动灭火系统时可扩大至5000平方米。二级建筑相应减少，三级建筑不超过1200 …</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 必应</span>
+                <span>🔑 耐火材料 招标</span>
+                
+                <span>🔗 https://www.yunjianzhu.com/43601.html</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://baike.sogou.com/v255913.htm" target="_blank" rel="noopener">
+                        耐火材料 _ 百科
+                    </a>
+                </div>
+                <span class="score-badge score-mid">60分</span>
+            </div>
+            <div class="snippet">2024年12月5日 · 自2001年以来，在钢铁、有色、石化、建材等高温工业高速发展的强力拉动下，耐火材料行业保持着良好的增长态势，已成为世界耐火材料的生产和出口大国。 2011年中国耐火材料产量 …</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 必应</span>
+                <span>🔑 耐火材料 招标</span>
+                <span>📅 2024-12-5</span>
+                <span>🔗 https://baike.sogou.com/v255913.htm</span>
+            </div>
+        </div>
+        </div>
+
+        <!-- Bid Results -->
+        <div class="results-section" id="tab-bid">
+            
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://www.baidu.com/baidu.php?url=K60000avpXkFvm7207a5-b8LDgz8_21ewNB60lJvoz5Al5DQEyi-yA0uH_UnWjsjBTuO0kbR6GsrH1C-8wtZI2mRR3Ju7FAlfzKVr-legaykDqE9AoIwIzYts5scPg_BH755sJY4TQ9pv1jxfwwnqpgzv8k9Mo0YCyt44SYCMVytfHJLuJh8eR1pWGpWAKBaZmpJdTAnZG6tQBk5LncvjbInzPa-.7R_iwGYSg_X17wxGuwKqAiaqM764XjC_o4mqnArZ-CFY3lQPK5Qbe3hnh1xdsw5CnNtIh1WvIXdrW6IPTk9tSMjESyZxu9tSMjElTrOx9tSMj_qTrOdsSxH9qVhZu33x5Gse5gjEqT5MY3xUu9vX2-muCy5A1umC.U1Yk0ZDqknvetQQDsTt-nWjNYQZJ0ZKGm1Ys0Zfq__HK1qgf_XoNYQZJ0A-V5HDYPWD0u1dEugK1nfKdpHdBmy-bIfKspyfqnHf0mv-b5Hnzn6KVIjY1nWc3g1nknWwxnH0kPdtznjRkg1DsnH-xn1msnNt4nHT30AVG5H00TMfqnW010AFG5HDdr7tznjf0Uynqn1czr7t1nHcYg1DsnHIxnW0dnNtknjD4g1KxrHDLr0KkTA-b5H00TyPGujYs0ZFMIA7M5H00Uh7GujYs0A49IZ0qn0KWIyfqPHmvrH64Pjn0mycqn7ts0ANzu1Ys0ZKs5H00UMus5H08nj0snj0snj00Ugws5H00uAwETjYs0ZFJ5H00uANv5gKW0AuY5H00TA6qn0KET1Ys0AFL5HDs0A4Y5H00TLCq0A71gv-bm1dsTzdMXh93XfKGuAnqiD4K0ZKCIZbq0Zw9ThI-IjY1nNt1nHFxr0KYIgnqPWb1n1Tknj6knj61PWbzPjDvPfKzug7Y5HDLrj0LPjbYnWfdnjR0pynqn0K1pyfquyc1mvmduhDsn1nznyDzu0KWTvYqwDPDfWF7wHD4PDwDwbNAPsK_mMnqn0K9m1Yk0ZK85HD0TydY5H00Tyd15H00uANYgvPsmHYs0ZGY5H00mMub5H00uLKY5HD0uv7Y5HD0UyPxuMFEUHYsg1Kxn7tsg1Kxn7ts0Aw9UMNBuNqsUA78pyw15HDsPjD3n10sg1c3PHmdnH-xn7tsg1Kxn7ts0ZK9I7qhUA7M5H00uAPGujYkrHbznWbYP0K-IA-b5iYk0A71TAPW5H00IgKGUhPW5H00Tydh5H00uhPdIjYs0A-1mvsqn0K9uAu_myTqnfK_uhnqn0KbmvPb5fKYTh7buHYznjcznjR0mhwGujdDwjc3fHuDfHfdnW9DfW7aPDFKf1NafYDkPj04wbn1wfKEm1Yk0AFY5H00Uv7YI1Ys0AqY5HD0ULFsIjYzc10Wnznzc1n1nWTvrHD3c1n3nj0Wn16sna3snj0snj0Wnznzc10WQinsQW0Ln1cLnBnkQW0snj0snankc10Wna3snj0snj0Wnansc10Wnansc10WnansQW0s0AF9UhV9mvnqnansc10Wn0K3TLwd5Hc1nH0LrjcL0Z7xIWYsQW0sg108njKxna3sn7tsQWb4g108nj7xna3sn7tsQWnYg108n1wxn7tsg100mMPxTZFEuA-b5H00ThqGuhk9u1Ys0Ad-IjYs0APv5fKGTdqWTADqn0KWTjYs0AN1IjYs0Z7MIvfqn0KETjDqnHm0TZ0Y5Hc0mLFW5HRsnHmd&amp;us=newvui&amp;xst=mWdDwjc3fHuDfHfdnW9DfW7aPDFKf1NafYDkPj04wbn1wf715HDvrHRsPWb1PHRkPWR4rHf3PH64g1DYPW7xn07L5UQDsTONYQZJdIakl67k5THP8OazknZ5cPgf_XCKIHYzn1DsP16zPs7Y5HDLrj0LPjbYnWfKUgDqn0cs0BYKmv6quhPxTAnKUZRqn07WUWdBmy-bIf7zIjYs0HDdrjf4PHc4n1m&amp;cegduid=nWnknjT3nWT&amp;solutionId=5976217&amp;word=" target="_blank" rel="noopener">
+                        材料招标招标-2026年招标采购信息更新
+                    </a>
+                </div>
+                <span class="score-badge score-high">100分</span>
+            </div>
+            <div class="snippet">材料招标招标-2026年招标公告,中标结果,拟建项目,采购信息等已更新!</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 百度</span>
+                <span>🔑 耐火材料 招标</span>
+                <span>📅 2026-06-06</span>
+                <span>🔗 https://www.baidu.com/baidu.php?url=K60000avpXkFvm7207a5-b8LDgz8_21ewNB60lJvoz5A...</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="http://www.baidu.com/link?url=lDQEoOutnZRRviaJpRLKIuac9WyQVH1gHiXRFCJhaCndU0zXciA4WTVvGvB8dj59ZDmJPnne-hfDUbGXbGWdQOHFzZ8TAnXyiNaHtP-fO8a" target="_blank" rel="noopener">
+                        招标公告耐火材料-招标,耐火材料,五矿集团-耐材之窗网
+                    </a>
+                </div>
+                <span class="score-badge score-high">70分</span>
+            </div>
+            <div class="snippet">招标 公告 耐火材料 -招标,耐火材料,五矿集团-耐材之窗网 2026年1月9日 中国恩菲工程技术有限公司 招标 公告致:潜在投标人中国恩菲工程技术有限公司受建设单位委托,承担金川WP镍铁技改总包项目,现对耐火材料供货及相关服务进行公开招标。 1. 项目概况与招标范围 1.1 项目名称:金川WP镍铁技改总包项目 1.2 建设单位:印尼金川WP公司 1.3 资金来源:建设单位提供 1.4 招标编号:305E17-4.015.006 1.5 招标内容… 耐材之窗网</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 百度</span>
+                <span>🔑 耐火材料 招标</span>
+                <span>📅 2026-1-9</span>
+                <span>🔗 http://www.baidu.com/link?url=lDQEoOutnZRRviaJpRLKIuac9WyQVH1gHiXRFCJhaCndU0zXci...</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://baike.baidu.com/item/%E8%80%90%E7%81%AB%E6%9D%90%E6%96%99/1038672" target="_blank" rel="noopener">
+                        耐火材料（无机非金属材料）_百度百科
+                    </a>
+                </div>
+                <span class="score-badge score-mid">60分</span>
+            </div>
+            <div class="snippet">现定义为凡物理化学性质允许其在高温环境下使用的材料称为耐火材料。 耐火材料广泛用于冶金、化工、石油、机械制造、硅酸盐、动力等工业领域，在冶金工业中用量最大，占总产量的50%～60%。</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 必应</span>
+                <span>🔑 耐火材料 招标</span>
+                
+                <span>🔗 https://baike.baidu.com/item/%E8%80%90%E7%81%AB%E6%9D%90%E6%96%99/1038672</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://zhuanlan.zhihu.com/p/5338513527" target="_blank" rel="noopener">
+                        耐火等级1、2、3、4级有什么区别？ - 知乎
+                    </a>
+                </div>
+                <span class="score-badge score-mid">60分</span>
+            </div>
+            <div class="snippet">2024年11月6日 · 在讨论耐火等级前，需理解以下几个相关概念： 耐火等级：衡量建筑整体抵抗火灾的能力，以保障建筑在火灾发生时保持必要的结构稳定性。 耐火极限：在标准火灾条件下，建筑构件（ …</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 必应</span>
+                <span>🔑 耐火材料 招标</span>
+                <span>📅 2024-11-6</span>
+                <span>🔗 https://zhuanlan.zhihu.com/p/5338513527</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://gf.cabr-fire.com/article-27247.htm" target="_blank" rel="noopener">
+                        5.1 建筑分类和耐火等级 - 建筑设计防火规范 GB50016-2014 ...
+                    </a>
+                </div>
+                <span class="score-badge score-mid">60分</span>
+            </div>
+            <div class="snippet">5.1.3 民用建筑的耐火等级应根据其建筑高度、使用功能、重要性和火灾扑救难度等确定，并应符合下列规定： 1 地下或半地下建筑（室）和一类高层建筑的耐火等级不应低于一级； 2 单、多层重要公共建 …</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 必应</span>
+                <span>🔑 耐火材料 招标</span>
+                
+                <span>🔗 https://gf.cabr-fire.com/article-27247.htm</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://www.soujianzhu.cn/NormAndRules/NormContent.aspx?id=2295" target="_blank" rel="noopener">
+                        建筑防火通用规范GB55037-2022
+                    </a>
+                </div>
+                <span class="score-badge score-mid">60分</span>
+            </div>
+            <div class="snippet">2023年6月1日 · 建筑物之间的防火间距要根据建筑的耐火等级、外墙的耐火性能与防火构造、建筑的高度与火灾危险性、建筑外部的消防救援条件等影响防火间距的主要因素，按照防止相邻建筑发生火灾后 …</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 必应</span>
+                <span>🔑 耐火材料 招标</span>
+                <span>📅 2023-6-1</span>
+                <span>🔗 https://www.soujianzhu.cn/NormAndRules/NormContent.aspx?id=2295</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://www.mee.gov.cn/ywgz/fgbz/bz/bzwb/dqhjbh/dqgdwrywrwpfbz/202512/W020251217419384991481.pdf" target="_blank" rel="noopener">
+                        中华人民共和国国家标准耐火材
+                    </a>
+                </div>
+                <span class="score-badge score-mid">60分</span>
+            </div>
+            <div class="snippet">2025年11月21日 · 常见的包括硅质、黏土 质、高铝 质、铬 质、镁 质、白云 石质、碳 质、锆质耐火材料和由这些材料组成的复合耐火材料,以及由氧化物、 氮化物、 硼化物、 碳化物、 硅化物等制成的特 …</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 必应</span>
+                <span>🔑 耐火材料 招标</span>
+                <span>📅 2025-11-21</span>
+                <span>🔗 https://www.mee.gov.cn/ywgz/fgbz/bz/bzwb/dqhjbh/dqgdwrywrwpfbz/202512/W020251217...</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://www.sohu.com/a/764384076_121685896" target="_blank" rel="noopener">
+                        深度解析！什么是耐火极限与耐火等级？_建筑_仓库_厂房
+                    </a>
+                </div>
+                <span class="score-badge score-mid">60分</span>
+            </div>
+            <div class="snippet">2024年3月15日 · (二) 民用建筑的建筑构件的特殊要求 1.建筑高度大于100m的民用建筑楼板的耐火极限不应低于2.00h。 2.一、二级耐火等级建筑的上人平屋顶，其屋面板的耐火极限分别不应低于1.50h …</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 必应</span>
+                <span>🔑 耐火材料 招标</span>
+                <span>📅 2024-3-15</span>
+                <span>🔗 https://www.sohu.com/a/764384076_121685896</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://www.toutiao.com/article/7409260863250563610/" target="_blank" rel="noopener">
+                        建筑耐火等级一二三四级怎么分，一般建筑的耐火等级是几级 ...
+                    </a>
+                </div>
+                <span class="score-badge score-mid">60分</span>
+            </div>
+            <div class="snippet">2024年8月31日 · 建筑耐火等级的划分主要依据建筑材料的燃烧性能和建筑构件的耐火极限。 根据我国国家标准《建筑设计防火规范》，建筑物的耐火等级通常分为四个等级，即一级、二级、三级和四级。</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 必应</span>
+                <span>🔑 耐火材料 招标</span>
+                <span>📅 2024-8-31</span>
+                <span>🔗 https://www.toutiao.com/article/7409260863250563610/</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://www.thintherm.cn/insulation-material-knowledge/502.html" target="_blank" rel="noopener">
+                        耐火材料的概念及其范畴（什么是耐火材料？）
+                    </a>
+                </div>
+                <span class="score-badge score-mid">60分</span>
+            </div>
+            <div class="snippet">现代工业对超高温材料的性能要求越来越高，所需求的类型也越来越多。 在中国不同行业间的交流中，“耐火材料”这一术语的概念外延已经有所扩展，常简称为“耐材”，不再局限于传统意义上的耐火材 …</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 必应</span>
+                <span>🔑 耐火材料 招标</span>
+                
+                <span>🔗 https://www.thintherm.cn/insulation-material-knowledge/502.html</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://www.yunjianzhu.com/43601.html" target="_blank" rel="noopener">
+                        建筑消防等级如何划分？一二级三级四级差异全解析
+                    </a>
+                </div>
+                <span class="score-badge score-mid">60分</span>
+            </div>
+            <div class="snippet">2 天之前 · 耐火等级直接决定防火分区的最大允许建筑面积。一级耐火等级建筑防火分区面积最大为2500平方米，设有自动灭火系统时可扩大至5000平方米。二级建筑相应减少，三级建筑不超过1200 …</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 必应</span>
+                <span>🔑 耐火材料 招标</span>
+                
+                <span>🔗 https://www.yunjianzhu.com/43601.html</span>
+            </div>
+        </div>
+        <div class="result-card bid-card">
+            <div class="card-header">
+                <div class="title">
+                    <a href="https://baike.sogou.com/v255913.htm" target="_blank" rel="noopener">
+                        耐火材料 _ 百科
+                    </a>
+                </div>
+                <span class="score-badge score-mid">60分</span>
+            </div>
+            <div class="snippet">2024年12月5日 · 自2001年以来，在钢铁、有色、石化、建材等高温工业高速发展的强力拉动下，耐火材料行业保持着良好的增长态势，已成为世界耐火材料的生产和出口大国。 2011年中国耐火材料产量 …</div>
+            <div class="meta">
+                <span class="category-tag tag-bid">招标采购</span>
+                <span>📍 必应</span>
+                <span>🔑 耐火材料 招标</span>
+                <span>📅 2024-12-5</span>
+                <span>🔗 https://baike.sogou.com/v255913.htm</span>
+            </div>
+        </div>
+        </div>
+
+        <!-- Material Results -->
+        <div class="results-section" id="tab-material">
+            
+        <div class="empty-state">
+            <div class="icon">📭</div>
+            <p>暂无此类结果</p>
+        </div>
+        </div>
+
+        <!-- Furnace Results -->
+        <div class="results-section" id="tab-furnace">
+            
+        <div class="empty-state">
+            <div class="icon">📭</div>
+            <p>暂无此类结果</p>
+        </div>
+        </div>
+
+        <!-- Errors -->
+        
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>耐火材料招标采购信息搜索工具 | 每日自动搜索 | 数据仅供参考</p>
+            <p style="margin-top:4px;">搜索关键词: 2 个 | 搜索引擎: 2 个</p>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tabName) {
+            // 隐藏所有内容
+            document.querySelectorAll('.results-section').forEach(s => s.classList.remove('active'));
+            // 取消所有按钮选中
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+            // 显示目标内容
+            document.getElementById('tab-' + tabName).classList.add('active');
+            // 选中对应按钮
+            event.currentTarget.classList.add('active');
+        }
+
+        // 为结果卡片添加入场动画
+        document.addEventListener('DOMContentLoaded', function() {
+            const cards = document.querySelectorAll('.result-card');
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    card.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 60);
+            });
+        });
+    </script>
+</body>
+</html>
