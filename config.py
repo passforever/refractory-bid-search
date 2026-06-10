@@ -1,6 +1,6 @@
 """
-耐火材料招标采购信息搜索工具 - 配置文件
-支持关键词管理、API数据源配置
+耐火材料招标采购信息搜索工具 - 配置文件 v3.0
+支持关键词管理、API数据源配置、后台管理、时效过滤
 """
 
 import json
@@ -87,15 +87,13 @@ SEARCH_SOURCES = {
 }
 
 # ==================== 固定网站 API 数据源 ====================
-# 可配置第三方招标网站 API，自动拉取结构化数据
 
 API_SOURCES = {
-    # 示例：中国政府采购网公开接口
     "ccgp": {
         "name": "中国政府采购网",
         "enabled": False,
         "api_url": "https://search.ccgp.gov.cn/bxsearch",
-        "api_type": "html",  # html / json / rss
+        "api_type": "html",
         "params": {
             "search_type": "1",
             "bidSort": "0",
@@ -118,7 +116,6 @@ API_SOURCES = {
             "date": "span",
         },
     },
-    # 示例：招标投标公共服务平台
     "cebpubservice": {
         "name": "招标投标公共服务平台",
         "enabled": False,
@@ -140,7 +137,7 @@ API_SOURCES = {
 
 # ==================== 过滤配置 ====================
 
-MAX_DAYS_OLD = 30
+MAX_DAYS_OLD = 30  # 只保留1个月内的资讯
 
 EXCLUDE_KEYWORDS = [
     "求职", "招聘", "人才", "简历",
@@ -177,6 +174,24 @@ REPORT_DIR = "reports"
 REPORT_FILENAME_FORMAT = "耐火材料招标_{date}.html"
 DATE_FORMAT = "%Y-%m-%d"
 
+# ==================== 后台管理配置 ====================
+
+# 管理员账户（登录凭证不显示在网页上）
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "Refr@2026!Bid"
+
+# Flask 服务器配置
+FLASK_HOST = "127.0.0.1"
+FLASK_PORT = 8899
+FLASK_DEBUG = False
+
+# 数据库
+DB_NAME = "bid_data.db"
+
+# 链接验证
+LINK_VALIDATE_TIMEOUT = 8   # 链接验证超时秒数
+LINK_VALIDATE_CONCURRENT = 5  # 并发验证数
+
 
 # ==================== 配置管理器 ====================
 
@@ -208,7 +223,6 @@ class ConfigManager:
 
     @classmethod
     def get_keywords(cls):
-        """获取合并后的关键词列表"""
         custom = cls.load_custom()
         if "keywords" in custom:
             return custom["keywords"]
@@ -222,7 +236,6 @@ class ConfigManager:
 
     @classmethod
     def get_api_sources(cls):
-        """获取合并后的 API 源"""
         custom = cls.load_custom()
         sources = dict(API_SOURCES)
         if "api_sources" in custom:

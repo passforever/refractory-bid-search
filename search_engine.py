@@ -1,6 +1,7 @@
 """
-耐火材料招标采购信息搜索工具 - 核心搜索引擎
+耐火材料招标采购信息搜索工具 - 核心搜索引擎 v3.0
 支持多源搜索、关键词组合、日期过滤、结果去重、API数据源
+新增：30天时效过滤、链接有效性验证、更丰富的信息提取
 """
 
 import re
@@ -14,6 +15,7 @@ from datetime import datetime, timedelta
 from urllib.parse import quote, urljoin, urlparse, parse_qs
 from typing import List, Dict, Optional, Set
 from dataclasses import dataclass, field
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # 修复 Windows 终端 UTF-8 编码
 if sys.platform == "win32":
@@ -47,7 +49,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SearchResult:
-    """单条搜索结果 - 增强版，含更多字段"""
+    """单条搜索结果 - 增强版"""
     title: str = ""
     url: str = ""
     snippet: str = ""
@@ -56,15 +58,16 @@ class SearchResult:
     date: str = ""
     category: str = ""
     relevance_score: float = 0.0
-    # 新增字段 - 更多信息
+    # 详细字段
     publisher: str = ""      # 发布单位/采购人
     budget: str = ""         # 预算金额
     deadline: str = ""       # 投标截止日期
     region: str = ""         # 地区
-    bid_type: str = ""       # 招标类型（公开招标/竞争性谈判/询价等）
+    bid_type: str = ""       # 招标类型
     contact: str = ""        # 联系方式
     domain: str = ""         # 来源域名
-    snippet_full: str = ""   # 完整摘要（不限长度）
+    snippet_full: str = ""   # 完整摘要
+    link_valid: Optional[bool] = None  # 链接是否有效（None=未验证）
 
     @property
     def uid(self) -> str:
@@ -82,6 +85,10 @@ class SearchResult:
             r'金额[：:]\s*([\d,.]+)\s*万?元',
             r'([\d,.]+)\s*万元',
             r'预算[金额]?[：:]\s*([\d,.]+)',
+            r'中标[金额]?[：:]\s*([\d,.]+)\s*万?元',
+            r'成交[金额]?[：:]\s*([\d,.]+)\s*万?元',
+            r'采购[金额]?[：:]\s*([\d,.]+)\s*万?元',
+            r'项目[金额造价]*[：:]\s*([\d,.]+)\s*万?元',
         ]
         for pat in budget_patterns:
             m = re.search(pat, text)
@@ -98,8 +105,9 @@ class SearchResult:
 
         # 提取截止日期
         deadline_patterns = [
-            r'(?:截止|开标)[时间日期][：:]\s*(\d{4}[-/年]\d{1,2}[-/月]\d{1,2}[日]?\s*\d{0,2}[：:]?\d{0,2})',
+            r'(?:截止|开标|投标)[时间日期][：:]\s*(\d{4}[-/年]\d{1,2}[-/月]\d{1,2}[日]?\s*\d{0,2}[：:]?\d{0,2})',
             r'(\d{4}[-/年]\d{1,2}[-/月]\d{1,2}[日]?)\s*(?:截止|开标|投标)',
+            r'截止[日期][：:]\s*(\d{4}[-/年]\d{1,2}[-/月]\d{1,2})',
         ]
         for pat in deadline_patterns:
             m = re.search(pat, text)
@@ -111,7 +119,10 @@ class SearchResult:
         regions = ["北京","上海","天津","重庆","河北","山西","辽宁","吉林","黑龙江",
                    "江苏","浙江","安徽","福建","江西","山东","河南","湖北","湖南",
                    "广东","海南","四川","贵州","云南","陕西","甘肃","青海","台湾",
-                   "内蒙古","广西","西藏","宁夏","新疆","香港","澳门"]
+                   "内蒙古","广西","西藏","宁夏","新疆","香港","澳门",
+                   "乌鲁木齐","郑州","太原","沈阳","长春","哈尔滨","南京","杭州",
+                   "合肥","福州","南昌","济南","武汉","长沙","广州","南宁","海口",
+                   "成都","贵阳","昆明","西安","兰州","西宁","拉萨","银川","石家庄"]
         for r in regions:
             if r in text:
                 self.region = r
@@ -126,6 +137,8 @@ class SearchResult:
             "询价采购": ["询价", "询价采购"],
             "单一来源": ["单一来源"],
             "比选": ["比选"],
+            "中标公示": ["中标公示", "中标公告", "中标结果"],
+            "成交公告": ["成交公告", "成交结果"],
         }
         for btype, patterns in bid_types.items():
             if any(p in text for p in patterns):
@@ -134,8 +147,8 @@ class SearchResult:
 
         # 提取发布单位
         pub_patterns = [
-            r'(?:采购人|采购单位|招标人|业主|采购方)[：:]\s*([^\s,，。；;]+)',
-            r'([^\s,，。；;]+(?:公司|集团|厂|局|院|中心|部|处|站|所))',
+            r'(?:采购人|采购单位|招标人|业主|采购方|招标单位)[：:]\s*([^\s,，。；;]+)',
+            r'([^\s,，。；;]{4,25}(?:有限公司|集团|股份|公司|厂|局|院|中心|部|处|站|所|大学))',
         ]
         for pat in pub_patterns:
             m = re.search(pat, text)
@@ -145,6 +158,17 @@ class SearchResult:
                     self.publisher = candidate
                     break
 
+        # 提取联系方式
+        contact_patterns = [
+            r'(?:联系电话|电话|联系人|联系方式)[：:]\s*([^\s,，。；;]+)',
+            r'(1[3-9]\d{9})',
+        ]
+        for pat in contact_patterns:
+            m = re.search(pat, text)
+            if m:
+                self.contact = m.group(1)
+                break
+
         # 提取域名
         if self.url:
             try:
@@ -153,7 +177,6 @@ class SearchResult:
             except:
                 pass
 
-        # 保存完整摘要
         self.snippet_full = self.snippet
 
 
@@ -168,6 +191,67 @@ class SearchReport:
     errors: List[str] = field(default_factory=list)
     source_stats: Dict[str, int] = field(default_factory=dict)
     category_stats: Dict[str, int] = field(default_factory=dict)
+    expired_count: int = 0       # 因超30天被过滤的数量
+    invalid_links: int = 0       # 无效链接数
+
+
+# ==================== 链接验证器 ====================
+
+class LinkValidator:
+    """验证链接是否可以正常访问"""
+
+    @staticmethod
+    def validate(url: str, timeout: int = None) -> bool:
+        """检查单个URL是否可访问"""
+        if not url or not url.startswith("http"):
+            return False
+        timeout = timeout or config.LINK_VALIDATE_TIMEOUT
+        try:
+            resp = requests.head(url, timeout=timeout, allow_redirects=True,
+                               headers=config.HEADERS)
+            if resp.status_code < 400:
+                return True
+            # HEAD 不行就试 GET
+            resp = requests.get(url, timeout=timeout, allow_redirects=True,
+                              headers=config.HEADERS, stream=True)
+            resp.close()
+            return resp.status_code < 400
+        except Exception:
+            return False
+
+    @staticmethod
+    def validate_batch(results: List, max_workers: int = None) -> List:
+        """批量验证链接，标记有效性"""
+        max_workers = max_workers or config.LINK_VALIDATE_CONCURRENT
+        if not results:
+            return results
+
+        logger.info(f"🔍 开始验证 {len(results)} 条链接...")
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_map = {}
+            for r in results:
+                if r.url and r.url.startswith("http"):
+                    future = executor.submit(LinkValidator.validate, r.url)
+                    future_map[future] = r
+
+            done_count = 0
+            for future in as_completed(future_map):
+                done_count += 1
+                result = future_map[future]
+                try:
+                    result.link_valid = future.result()
+                except Exception:
+                    result.link_valid = False
+
+                if done_count % 10 == 0:
+                    logger.info(f"  验证进度: {done_count}/{len(results)}")
+
+        valid = sum(1 for r in results if r.link_valid is True)
+        invalid = sum(1 for r in results if r.link_valid is False)
+        logger.info(f"✅ 链接验证完成: {valid} 个有效, {invalid} 个无效")
+
+        return results
 
 
 # ==================== 搜索引擎基类 ====================
@@ -232,6 +316,10 @@ class BaseSearchEngine:
                 elif days_ago <= 30: score += 5
             except (ValueError, IndexError):
                 pass
+
+        # 链接有效加分
+        if result.link_valid is True:
+            score += 5
 
         for ex in config.EXCLUDE_KEYWORDS:
             if ex in text:
@@ -343,20 +431,37 @@ class BaiduSearchEngine(BaseSearchEngine):
         return results
 
     def _resolve_baidu_url(self, href: str) -> str:
-        if "baidu.com/link" in href:
+        """解析百度重定向URL，获取真实目标URL"""
+        if "baidu.com/link" in href or "baidu.com/baidu.php" in href:
+            # 先尝试从参数中提取真实URL
             parsed = urlparse(href)
             params = parse_qs(parsed.query)
+
+            # 如果url参数本身就是一个http链接（某些老格式）
             if "url" in params:
-                return params["url"][0]
+                url_val = params["url"][0]
+                if url_val.startswith("http"):
+                    return url_val
+
+            # url参数是加密token，必须实际跟踪重定向
+            # 使用HEAD请求（不下载body），限制超时
             try:
-                from urllib.parse import unquote
-                decoded = unquote(href)
-                url_match = re.search(r'(https?://[^&\s]+)', decoded)
-                if url_match:
-                    return url_match.group(1)
-            except:
+                resp = requests.head(href, timeout=5, allow_redirects=True,
+                                   headers=config.HEADERS)
+                if resp.url and resp.url != href:
+                    return resp.url
+                # HEAD可能被拦截，试GET
+                resp = requests.get(href, timeout=5, allow_redirects=True,
+                                  headers=config.HEADERS, stream=True)
+                resp.close()
+                if resp.url and resp.url != href:
+                    return resp.url
+            except Exception:
                 pass
+
+            # 重定向跟踪也失败了，保留完整百度链接（由Flask代理处理）
             return href
+
         return href
 
 
@@ -483,8 +588,6 @@ class BidSiteSearchEngine(BaseSearchEngine):
 # ==================== API 数据源搜索 ====================
 
 class ApiSearchEngine(BaseSearchEngine):
-    """通过配置的 API 数据源搜索结构化招标数据"""
-
     def __init__(self):
         super().__init__("API数据源", "")
 
@@ -507,7 +610,6 @@ class ApiSearchEngine(BaseSearchEngine):
         return results
 
     def _search_api(self, key: str, source_cfg: dict, keyword: str) -> List[SearchResult]:
-        """根据 API 配置搜索"""
         results = []
         api_url = source_cfg.get("api_url", "")
         api_type = source_cfg.get("api_type", "html")
@@ -515,7 +617,6 @@ class ApiSearchEngine(BaseSearchEngine):
         encoding = source_cfg.get("encoding", "utf-8")
         selectors = source_cfg.get("result_selector", {})
 
-        # 构建请求参数
         params = {}
         today = datetime.now().strftime("%Y:%m:%d")
         date_30d_ago = (datetime.now() - timedelta(days=30)).strftime("%Y:%m:%d")
@@ -524,13 +625,11 @@ class ApiSearchEngine(BaseSearchEngine):
             params[k] = v
 
         if api_type == "json":
-            # JSON API
             try:
                 resp = self.session.get(api_url, params=params, timeout=config.REQUEST_TIMEOUT)
                 resp.encoding = encoding
                 if resp.status_code == 200:
                     data = resp.json()
-                    # 通用 JSON 解析 - 尝试提取列表
                     items = self._extract_json_list(data)
                     for item in items[:20]:
                         result = SearchResult(source=source_cfg.get("name", key), keyword=keyword)
@@ -550,9 +649,7 @@ class ApiSearchEngine(BaseSearchEngine):
                                 results.append(result)
             except Exception as e:
                 logger.warning(f"[API] JSON 解析失败: {e}")
-
         else:
-            # HTML 页面爬取
             try:
                 if params:
                     url = api_url + "?" + "&".join(f"{k}={quote(str(v))}" for k, v in params.items())
@@ -570,13 +667,11 @@ class ApiSearchEngine(BaseSearchEngine):
                 for container in containers[:20]:
                     result = SearchResult(source=source_cfg.get("name", key), keyword=keyword)
 
-                    # 标题
                     title_sel = selectors.get("title", "a")
                     title_tag = container.select_one(title_sel)
                     if title_tag:
                         result.title = title_tag.get_text(strip=True)
 
-                    # URL
                     url_sel = selectors.get("url", "a[href]")
                     url_tag = container.select_one(url_sel)
                     if url_tag:
@@ -585,13 +680,11 @@ class ApiSearchEngine(BaseSearchEngine):
                             href = urljoin(api_url, href)
                         result.url = href
 
-                    # 摘要
                     snippet_sel = selectors.get("snippet", "p")
                     snippet_tag = container.select_one(snippet_sel)
                     if snippet_tag:
                         result.snippet = snippet_tag.get_text(strip=True)
 
-                    # 日期
                     date_sel = selectors.get("date", "span")
                     date_tag = container.select_one(date_sel)
                     if date_tag:
@@ -609,11 +702,9 @@ class ApiSearchEngine(BaseSearchEngine):
         return results
 
     def _extract_json_list(self, data):
-        """从 JSON 响应中提取列表数据"""
         if isinstance(data, list):
             return data
         if isinstance(data, dict):
-            # 尝试常见字段名
             for key in ["data", "results", "items", "list", "records", "rows", "content"]:
                 if key in data:
                     val = data[key]
@@ -621,7 +712,6 @@ class ApiSearchEngine(BaseSearchEngine):
                         return val
                     if isinstance(val, dict):
                         return self._extract_json_list(val)
-            # 遍历所有值找列表
             for v in data.values():
                 if isinstance(v, list) and len(v) > 0:
                     return v
@@ -643,13 +733,13 @@ class SearchScheduler:
         if config.SEARCH_SOURCES["chinabidding"]["enabled"] or config.SEARCH_SOURCES["zhaobiao"]["enabled"]:
             self.engines["bidsite"] = BidSiteSearchEngine()
 
-        # 检查是否有启用的 API 数据源
         api_sources = config.ConfigManager.get_api_sources()
         has_enabled_api = any(s.get("enabled", False) for s in api_sources.values())
         if has_enabled_api:
             self.engines["api"] = ApiSearchEngine()
 
-    def run_search(self, keywords: List[str] = None, max_pages: int = 2) -> SearchReport:
+    def run_search(self, keywords: List[str] = None, max_pages: int = 2,
+                   validate_links: bool = True) -> SearchReport:
         if keywords is None:
             keywords = config.ConfigManager.get_keywords()
 
@@ -693,7 +783,23 @@ class SearchScheduler:
                     logger.error(f"  ❌ {error_msg}")
                     report.errors.append(error_msg)
 
-        filtered_results = self._filter_results(all_results)
+        # 30天时效过滤
+        filtered_results, expired_count = self._filter_by_date(all_results)
+        report.expired_count = expired_count
+
+        # 关键词过滤
+        filtered_results = self._filter_results(filtered_results)
+
+        # 链接验证
+        if validate_links and filtered_results:
+            LinkValidator.validate_batch(filtered_results)
+            invalid_count = sum(1 for r in filtered_results if r.link_valid is False)
+            report.invalid_links = invalid_count
+
+        # 重新计算相关度（链接验证后）
+        for r in filtered_results:
+            r.relevance_score = self._calculate_relevance_with_link(r)
+
         filtered_results.sort(key=lambda x: x.relevance_score, reverse=True)
 
         report.results = filtered_results
@@ -703,9 +809,30 @@ class SearchScheduler:
 
         logger.info(f"\n{'='*60}")
         logger.info(f"🎯 搜索完成！共找到 {report.total_results} 条有效结果")
+        logger.info(f"⏰ 过期(>{config.MAX_DAYS_OLD}天): {expired_count} 条")
+        logger.info(f"🔗 无效链接: {report.invalid_links} 条")
         logger.info(f"{'='*60}")
 
         return report
+
+    def _filter_by_date(self, results: List[SearchResult]) -> tuple:
+        """过滤超过30天的结果，返回 (过滤后列表, 过期数量)"""
+        kept = []
+        expired = 0
+        cutoff = datetime.now() - timedelta(days=config.MAX_DAYS_OLD)
+
+        for r in results:
+            if r.date:
+                try:
+                    pub_date = datetime.strptime(r.date[:10], "%Y-%m-%d")
+                    if pub_date < cutoff:
+                        expired += 1
+                        continue
+                except (ValueError, IndexError):
+                    pass  # 日期解析失败的保留
+            kept.append(r)
+
+        return kept, expired
 
     def _filter_results(self, results: List[SearchResult]) -> List[SearchResult]:
         filtered = []
@@ -719,6 +846,13 @@ class SearchScheduler:
                 continue
             filtered.append(r)
         return filtered
+
+    def _calculate_relevance_with_link(self, r: SearchResult) -> float:
+        score = r.relevance_score
+        # 无效链接降权
+        if r.link_valid is False:
+            score -= 15
+        return max(0, min(100, score))
 
     def _count_by_source(self, results: List[SearchResult]) -> Dict[str, int]:
         stats = {}
